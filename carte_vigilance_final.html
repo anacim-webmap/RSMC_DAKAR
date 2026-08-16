@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<title>DAKAR - RSMC Guidance Forecast (interactive)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+<!-- ===================== DONNÉES DES 5 ÉCHÉANCES =====================
+     Chaque fichier définit une variable globale (carte_jour_1 ... carte_jour_5)
+     contenant un GeoJSON FeatureCollection. Placez ces fichiers dans le même
+     dossier que ce HTML. ==================================================== -->
+<script src="carte_jour_1.js"></script>
+<script src="carte_jour_2.js"></script>
+<script src="carte_jour_3.js"></script>
+<script src="carte_jour_4.js"></script>
+<script src="carte_jour_5.js"></script>
+
+<!-- ===================== FOND DE CARTE — LIMITES DES PAYS =====================
+     Contours administratifs (Afrique de l'Ouest), affichés en permanence,
+     quelle que soit l'échéance sélectionnée. ==================================== -->
+<script src="afrique_ouest.js"></script>
+
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
+  #map { height:100vh; width:100%; }
+
+  #panel {
+    position:absolute; top:12px; left:60px; z-index:1000;
+    background:rgba(255,255,255,0.95); padding:10px 14px; border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+  }
+  #panel h3 { margin:0 0 6px 0; font-size:15px; }
+  .day-btn {
+    padding:6px 12px; margin:2px; border:1px solid #888; border-radius:4px;
+    background:#f0f0f0; cursor:pointer; font-size:13px;
+  }
+  .day-btn.active { background:#2c7fb8; color:#fff; border-color:#1c5a85; }
+  .day-btn:hover { background:#dbeaf5; }
+
+  #legend {
+    position:absolute; bottom:20px; right:12px; z-index:1000;
+    background:rgba(255,255,255,0.95); padding:10px 14px; border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3); font-size:12px; max-width:240px;
+    max-height:60vh; overflow-y:auto;
+  }
+  #legend div.legend-row { display:flex; align-items:center; margin:2px 0; }
+  #legend span.swatch { width:14px; height:14px; display:inline-block; margin-right:6px; border:1px solid #666; flex:none; }
+  #legend-header { display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; }
+  #legend-body { overflow:hidden; max-height:400px; transition:max-height 0.2s ease; margin-top:4px; }
+  #legend.collapsed #legend-body { max-height:0; margin-top:0; }
+  #legend.collapsed #legend-toggle-icon { transform:rotate(-90deg); }
+  #legend-toggle-icon { transition:transform 0.2s ease; }
+
+  /* Bulle d'info qui suit le curseur (comme meteo_senegal_responsive.html) */
+  .info-flottante {
+    position:absolute; pointer-events:none; z-index:1100;
+    padding:10px 12px; font:14px Arial, Helvetica, sans-serif;
+    background:rgba(255,255,255,0.97); box-shadow:0 0 15px rgba(0,0,0,0.25);
+    border-radius:8px; display:none; max-width:260px; line-height:1.45;
+  }
+  .info-flottante b.titre { color:#1c5a85; font-size:15px; }
+
+  #logo {
+    position:absolute; bottom:20px; left:12px; z-index:1000;
+    background:rgba(255,255,255,0.9); padding:6px 8px; border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+  }
+  #logo img { display:block; height:70px; width:auto; }
+
+  #date-panel {
+    position:absolute; top:12px; right:12px; z-index:1000;
+    background:rgba(255,255,255,0.95); padding:8px 14px; border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3); text-align:right;
+  }
+  #date-panel .echeance-label { font-weight:bold; font-size:14px; color:#1c5a85; }
+  #date-panel .date-value { font-size:13px; color:#333; margin-top:2px; }
+
+  #alerte-donnees {
+    position:absolute; top:70px; left:60px; z-index:1000;
+    background:#fff3cd; color:#7a5b00; border:1px solid #ffe08a;
+    padding:8px 12px; border-radius:6px; font-size:12px; max-width:260px;
+    display:none;
+  }
+
+  /* ===================== ADAPTATION MOBILE / TABLETTE ===================== */
+  @media (max-width: 600px) {
+    #panel {
+      left:52px; top:8px; padding:6px 8px; max-width:calc(100vw - 64px);
+    }
+    #panel h3 { font-size:12px; margin-bottom:4px; }
+    .day-btn {
+      padding:9px 8px; margin:2px 1px; font-size:12px; min-width:38px;
+    }
+    #date-panel {
+      top:auto; bottom:8px; right:8px; padding:6px 10px;
+      max-width:150px;
+    }
+    #date-panel .echeance-label { font-size:12px; }
+    #date-panel .date-value { font-size:10px; }
+    #legend {
+      top:8px; right:8px; bottom:auto; left:auto;
+      max-width:150px; font-size:10px; padding:6px 8px; max-height:50vh;
+    }
+    #legend span.swatch { width:11px; height:11px; margin-right:4px; }
+    #logo { bottom:8px; left:8px; padding:4px 6px; }
+    #logo img { height:42px; }
+    #alerte-donnees { left:52px; top:80px; max-width:calc(100vw - 64px); font-size:11px; }
+    .info-flottante { max-width:200px; font-size:12px; padding:8px 10px; }
+  }
+
+  /* Cible spécifiquement les très petits écrans (téléphones en portrait) */
+  @media (max-width: 380px) {
+    #panel h3 { display:none; } /* le titre cède la place aux boutons */
+    .day-btn { padding:8px 6px; font-size:11px; min-width:32px; }
+    #date-panel { max-width:130px; }
+    #legend { max-width:130px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <h3>Échéance de prévision</h3>
+  <button class="day-btn active" data-day="1">J1</button>
+  <button class="day-btn" data-day="2">J2</button>
+  <button class="day-btn" data-day="3">J3</button>
+  <button class="day-btn" data-day="4">J4</button>
+  <button class="day-btn" data-day="5">J5</button>
+</div>
+
+<div id="alerte-donnees"></div>
+
+<div id="legend">
+  <div id="legend-header">
+    <b>Légende</b><span id="legend-toggle-icon">▾</span>
+  </div>
+  <div id="legend-body">
+  <div class="legend-row"><span class="swatch" style="background:#d9d94a"></span> G&gt;40km/h</div>
+  <div class="legend-row"><span class="swatch" style="background:#c9932e"></span> G&gt;60km/h</div>
+  <div class="legend-row"><span class="swatch" style="background:#e844d1"></span> Hs&gt;2m</div>
+  <div class="legend-row"><span class="swatch" style="background:#5c1f78"></span> Hs&gt;3m</div>
+  <div class="legend-row"><span class="swatch" style="background:#e07b1a"></span> T&gt;40°C</div>
+  <div class="legend-row"><span class="swatch" style="background:#c0392b"></span> T&gt;45°C</div>
+  <div class="legend-row"><span class="swatch" style="background:#8fd694"></span> HR&gt;50mm/12h</div>
+  <div class="legend-row"><span class="swatch" style="background:#00e800"></span> HR&gt;50mm/24h</div>
+  <div class="legend-row"><span class="swatch" style="background:#0a5c0a"></span> HR&gt;100mm/24h</div>
+  <div class="legend-row"><span class="swatch" style="background:#6ec6e0"></span> T&lt;10°C</div>
+  <div class="legend-row"><span class="swatch" style="background:#1a4fa0"></span> T&lt;8°C</div>
+  <div class="legend-row"><span class="swatch" style="background:#ffffff;border-style:dashed;"></span> NSW (aucun phénomène)</div>
+  </div>
+</div>
+
+<div id="date-panel">
+  <div class="echeance-label" id="echeance-label">Échéance : J1</div>
+  <div class="date-value" id="date-value">-</div>
+</div>
+
+<div id="logo">
+  <img src="logo_anacim.png" alt="Logo ANACIM">
+</div>
+
+<div class="info-flottante" id="info-flottante"></div>
+
+<div id="map"></div>
+
+<script>
+// ============================================================
+// Date affichée dans le panneau : calculée à partir de l'échéance
+// (J1 = aujourd'hui, J2 = +1 jour, ... J5 = +4 jours), plutôt que lue
+// depuis les données (le champ Date_val s'est révélé incohérent d'un
+// polygone à l'autre au sein d'un même fichier/échéance).
+// ============================================================
+const decalageParEcheance = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4 };
+
+function formatDateFR(date) {
+  return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    .replace(/^./, c => c.toUpperCase());
+}
+
+function dateEcheance(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + (decalageParEcheance[n] ?? 0));
+  return formatDateFR(d);
+}
+function recupererDonneesJour(n) {
+  const nomVariable = 'carte_jour_' + n;
+  if (typeof window[nomVariable] !== 'undefined') return window[nomVariable];
+  return null;
+}
+
+const map = L.map('map', { zoomControl: true }).setView([15.5, -7], 5);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 12
+}).addTo(map);
+
+// Panes dédiées : le fond de carte (pays) reste toujours sous les polygones de vigilance
+map.createPane('paneFondPays');
+map.getPane('paneFondPays').style.zIndex = 350;
+map.createPane('paneVigilance');
+map.getPane('paneVigilance').style.zIndex = 450;
+
+// Détection tactile : sur mobile/tablette, le survol n'existe pas -> on bascule sur le tap
+const estTactile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+let coucheActuelle = null;
+let jourActuel = 1;
+
+// ============================================================
+// Bulle d'info flottante (suit le curseur, comme meteo_senegal_responsive.html)
+// ============================================================
+const infoDiv = document.getElementById('info-flottante');
+
+function positionnerInfo(x, y) {
+  const mapEl = document.getElementById('map');
+  const largeurCarte = mapEl.clientWidth;
+  const hauteurCarte = mapEl.clientHeight;
+  const largeurInfo = infoDiv.offsetWidth || 240;
+  const hauteurInfo = infoDiv.offsetHeight || 120;
+
+  let posX = x + 15;
+  let posY = y - 15;
+
+  if (posX + largeurInfo > largeurCarte) posX = x - largeurInfo - 15;
+  if (posY < 0) posY = y + 15;
+  if (posY + hauteurInfo > hauteurCarte) posY = hauteurCarte - hauteurInfo - 10;
+
+  infoDiv.style.left = posX + 'px';
+  infoDiv.style.top = posY + 'px';
+}
+
+function afficherInfo(props) {
+  infoDiv.style.display = 'block';
+  infoDiv.innerHTML =
+    '<b class="titre">' + (props.Phenomene ?? 'Phénomène') + '</b><br>' +
+    '<b>Seuil :</b> ' + (props.Seuil_code ?? '-') + '<br>' +
+    '<b>Valeur seuil :</b> ' + (props.Seuil_val ?? '-') + ' ' + (props.Unite ?? '') + '<br>' +
+    '<b>Échéance :</b> ' + (props.Echeance ?? '-') + '<br>' +
+    '<b>Date de validité :</b> ' + (props.Date_val ?? '-') +
+    (props.Commentair ? '<br><b>Commentaire :</b> ' + props.Commentair : '');
+}
+
+function masquerInfo() {
+  infoDiv.style.display = 'none';
+}
+
+map.on('mousemove', function (e) {
+  if (!estTactile && infoDiv.style.display === 'block') {
+    positionnerInfo(e.containerPoint.x, e.containerPoint.y);
+  }
+});
+
+// ============================================================
+// Superposition : on fait remonter les PETITS polygones au-dessus
+// des grands, pour qu'ils restent visibles/cliquables même s'ils
+// sont entièrement recouverts par une zone plus large.
+// ============================================================
+function aireEmprise(layer) {
+  // Aire de l'emprise (bounding box), robuste face aux polygones imbriqués/fins.
+  try {
+    const b = layer.getBounds();
+    const dLat = b.getNorth() - b.getSouth();
+    const dLng = b.getEast() - b.getWest();
+    const aire = Math.abs(dLat * dLng);
+    return Number.isFinite(aire) ? aire : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function mettreEnAvantLesPetits(coucheGeoJSON) {
+  const paires = [];
+  coucheGeoJSON.eachLayer(layer => {
+    if (layer.feature && layer.feature.geometry) {
+      paires.push({ layer, aire: aireEmprise(layer) });
+    }
+  });
+  paires.sort((a, b) => b.aire - a.aire);
+  paires.forEach(p => p.layer.bringToFront());
+}
+
+// ============================================================
+// Fond de carte — limites des pays (Afrique de l'Ouest), affiché une
+// seule fois, sous les polygones de vigilance, visible pour toutes
+// les échéances.
+// ============================================================
+function styleFondDeCarte() {
+  return { color: '#666666', weight: 1, fillColor: '#e8e4d8', fillOpacity: 0.35 };
+}
+
+function onEachPays(feature, layer) {
+  layer.on({
+    mouseover: function (e) {
+      if (estTactile) return; // sur tactile, on gère uniquement via 'click' ci-dessous
+      infoDiv.style.display = 'block';
+      infoDiv.innerHTML =
+        '<b class="titre">' + (feature.properties.ADM0_NAME ?? 'Pays') + '</b><br>' +
+        '<b>Code ISO3 :</b> ' + (feature.properties.ISO3 ?? '-');
+      positionnerInfo(e.containerPoint.x, e.containerPoint.y);
+    },
+    mouseout: function () { if (!estTactile) masquerInfo(); },
+    click: function (e) {
+      if (!estTactile) return; // sur PC, le survol suffit
+      infoDiv.style.display = 'block';
+      infoDiv.innerHTML =
+        '<b class="titre">' + (feature.properties.ADM0_NAME ?? 'Pays') + '</b><br>' +
+        '<b>Code ISO3 :</b> ' + (feature.properties.ISO3 ?? '-');
+      positionnerInfo(e.containerPoint.x, e.containerPoint.y);
+      L.DomEvent.stopPropagation(e);
+    }
+  });
+}
+
+if (typeof afrique_ouest !== 'undefined') {
+  L.geoJSON(afrique_ouest, { pane: 'paneFondPays', style: styleFondDeCarte, onEachFeature: onEachPays }).addTo(map);
+} else {
+  console.warn('afrique_ouest.js introuvable : fond de carte des pays non affiché.');
+}
+function stylePolygone(feature) {
+  return {
+    color: '#333333',
+    weight: 1,
+    fillColor: feature.properties.Couleur_ph || '#3388ff',
+    fillOpacity: 0.55
+  };
+}
+
+function onEachFeature(feature, layer) {
+  layer.on({
+    mouseover: function (e) {
+      if (estTactile) return; // sur tactile, on gère uniquement via 'click' ci-dessous
+      const l = e.target;
+      l.bringToFront();
+      l.setStyle({ weight: 3, color: '#000' });
+      afficherInfo(feature.properties);
+      positionnerInfo(e.containerPoint.x, e.containerPoint.y);
+    },
+    mouseout: function (e) {
+      if (estTactile) return;
+      coucheActuelle.resetStyle(e.target);
+      masquerInfo();
+    },
+    click: function (e) {
+      if (!estTactile) return; // sur PC, le survol suffit
+      const l = e.target;
+      // Referme si on retape la même zone déjà ouverte, sinon l'ouvre
+      const dejaOuvert = infoDiv.style.display === 'block' && infoDiv.dataset.featureId === String(feature.id ?? '');
+      if (dejaOuvert) {
+        masquerInfo();
+      } else {
+        l.bringToFront();
+        l.setStyle({ weight: 3, color: '#000' });
+        afficherInfo(feature.properties);
+        infoDiv.dataset.featureId = String(feature.id ?? '');
+        positionnerInfo(e.containerPoint.x, e.containerPoint.y);
+      }
+      L.DomEvent.stopPropagation(e);
+    }
+  });
+}
+
+// Sur tactile : un tap en dehors d'un polygone referme la bulle d'info
+map.on('click', function () {
+  if (estTactile) masquerInfo();
+});
+
+// ============================================================
+// Légende construite dynamiquement à partir des données du jour affiché
+// (regroupée par couleur, pour éviter les doublons liés à des libellés
+// légèrement différents pour un même phénomène/couleur)
+// ============================================================
+// ============================================================
+// Légende repliable : gagne de la place sur petit écran (mobile).
+// Repliée par défaut si l'écran est étroit, dépliée sinon.
+// ============================================================
+const legendEl = document.getElementById('legend');
+const legendHeader = document.getElementById('legend-header');
+if (window.innerWidth <= 600) legendEl.classList.add('collapsed');
+legendHeader.addEventListener('click', () => legendEl.classList.toggle('collapsed'));
+
+// (Légende désormais fixe — affichée en HTML statique, voir #legend ci-dessus)
+
+// ============================================================
+// Affichage / changement de jour
+// ============================================================
+function afficherJour(n) {
+  jourActuel = n;
+  const donnees = recupererDonneesJour(n);
+  const alerte = document.getElementById('alerte-donnees');
+
+  if (coucheActuelle) {
+    map.removeLayer(coucheActuelle);
+    coucheActuelle = null;
+  }
+  masquerInfo();
+
+  if (!donnees) {
+    alerte.style.display = 'block';
+    alerte.textContent = `⚠️ Le fichier carte_jour_${n}.js est introuvable ou n'a pas encore été créé.`;
+  } else {
+    alerte.style.display = 'none';
+    coucheActuelle = L.geoJSON(donnees, {
+      pane: 'paneVigilance',
+      style: stylePolygone,
+      onEachFeature: onEachFeature
+    }).addTo(map);
+
+    // Fait passer les petits polygones au-dessus des grands (superposition lisible)
+    mettreEnAvantLesPetits(coucheActuelle);
+  }
+
+  // Date affichée = calculée depuis l'échéance (fiable), pas depuis les données
+  document.getElementById('date-value').textContent = dateEcheance(n);
+
+  document.getElementById('echeance-label').textContent = 'Échéance : J' + n;
+}
+
+// ============================================================
+// Gestion des boutons de jour
+// ============================================================
+document.querySelectorAll('.day-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    afficherJour(parseInt(btn.dataset.day, 10));
+  });
+});
+
+// Affichage initial (J1)
+afficherJour(1);
+</script>
+</body>
+</html>

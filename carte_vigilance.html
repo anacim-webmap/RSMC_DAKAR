@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>DAKAR - RSMC Guidance Forecast (interactive)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+  html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
+  #map { height:100vh; width:100%; }
+
+  #panel {
+    position:absolute; top:12px; left:60px; z-index:1000;
+    background:rgba(255,255,255,0.95); padding:10px 14px; border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+  }
+  #panel h3 { margin:0 0 6px 0; font-size:15px; }
+  .day-btn {
+    padding:6px 12px; margin:2px; border:1px solid #888; border-radius:4px;
+    background:#f0f0f0; cursor:pointer; font-size:13px;
+  }
+  .day-btn.active { background:#2c7fb8; color:#fff; border-color:#1c5a85; }
+  .day-btn:hover { background:#dbeaf5; }
+
+  #legend {
+    position:absolute; bottom:20px; right:12px; z-index:1000;
+    background:rgba(255,255,255,0.95); padding:10px 14px; border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3); font-size:12px; max-width:230px;
+  }
+  #legend div { display:flex; align-items:center; margin:2px 0; }
+  #legend span.swatch { width:14px; height:14px; display:inline-block; margin-right:6px; border:1px solid #666; }
+
+  .info-popup b { color:#1c5a85; }
+
+  #logo {
+    position:absolute; bottom:20px; left:12px; z-index:1000;
+    background:rgba(255,255,255,0.9); padding:6px 8px; border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+  }
+  #logo img { display:block; height:70px; width:auto; }
+
+  #date-panel {
+    position:absolute; top:12px; right:12px; z-index:1000;
+    background:rgba(255,255,255,0.95); padding:8px 14px; border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3); text-align:right;
+  }
+  #date-panel .echeance-label { font-weight:bold; font-size:14px; color:#1c5a85; }
+  #date-panel .date-value { font-size:13px; color:#333; margin-top:2px; }
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <h3>Échéance de prévision</h3>
+  <button class="day-btn active" data-day="J1">J1</button>
+  <button class="day-btn" data-day="J2">J2</button>
+  <button class="day-btn" data-day="J3">J3</button>
+  <button class="day-btn" data-day="J4">J4</button>
+  <button class="day-btn" data-day="J5">J5</button>
+</div>
+
+<div id="legend">
+  <div><span class="swatch" style="background:#d9d94a"></span> G&gt;40km/h</div>
+  <div><span class="swatch" style="background:#c9932e"></span> G&gt;60km/h</div>
+  <div><span class="swatch" style="background:#e844d1"></span> Hs&gt;2m</div>
+  <div><span class="swatch" style="background:#5c1f78"></span> Hs&gt;3m</div>
+  <div><span class="swatch" style="background:#e07b1a"></span> T&gt;40°C</div>
+  <div><span class="swatch" style="background:#c0392b"></span> T&gt;45°C</div>
+  <div><span class="swatch" style="background:#8fd694"></span> HR&gt;50mm/12h</div>
+  <div><span class="swatch" style="background:#00e800"></span> HR&gt;50mm/24h</div>
+  <div><span class="swatch" style="background:#0a5c0a"></span> HR&gt;100mm/24h</div>
+  <div><span class="swatch" style="background:#6ec6e0"></span> T&lt;10°C</div>
+  <div><span class="swatch" style="background:#1a4fa0"></span> T&lt;8°C</div>
+  <div><span class="swatch" style="background:#ffffff;border-style:dashed;"></span> NSW (aucun phénomène)</div>
+</div>
+
+<div id="date-panel">
+  <div class="echeance-label" id="echeance-label">Échéance : J1</div>
+  <div class="date-value" id="date-value">-</div>
+</div>
+
+<div id="logo">
+  <img src="logo_anacim.png" alt="Logo ANACIM">
+</div>
+
+<div id="map"></div>
+
+<script>
+// ====== CONFIGURATION A ADAPTER ======
+const GEOSERVER_WMS_URL = "https://VOTRE_SERVEUR/geoserver/anacim/wms"; // <-- remplacer par l'URL réelle de votre GeoServer
+const WMS_LAYER_NAME    = "anacim:polygones_vigilance";                 // <-- format "workspace:nom_couche"
+const WMS_STYLE_NAME    = "vigilance_categories";                       // <-- nom du style SLD importé à l'étape 3 du guide
+// =====================================
+
+const map = L.map('map', { zoomControl: true }).setView([15.5, -8], 5);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 12
+}).addTo(map);
+
+let currentDay = "J1";
+
+// ---- Gestion de la date affichée pour chaque échéance ----
+// J1 = date du jour ; J2 = jour+1 ... J5 = jour+4
+const dayOffsets = { "J1": 0, "J2": 1, "J3": 2, "J4": 3, "J5": 4 };
+
+function formatDateFR(date) {
+  return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function updateDatePanel(day) {
+  const today = new Date();
+  const target = new Date(today);
+  target.setDate(today.getDate() + dayOffsets[day]);
+
+  document.getElementById('echeance-label').textContent = 'Échéance : ' + day;
+  document.getElementById('date-value').textContent =
+    formatDateFR(target).replace(/^./, c => c.toUpperCase());
+}
+
+updateDatePanel(currentDay); // affichage initial
+
+// Couche WMS filtrée par échéance via CQL_FILTER
+let wmsLayer = L.tileLayer.wms(GEOSERVER_WMS_URL, {
+  layers: WMS_LAYER_NAME,
+  styles: WMS_STYLE_NAME,
+  format: 'image/png',
+  transparent: true,
+  version: '1.1.1',
+  cql_filter: "echeance='" + currentDay + "'"
+}).addTo(map);
+
+// Gestion des boutons de jour
+document.querySelectorAll('.day-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentDay = btn.dataset.day;
+    wmsLayer.setParams({ cql_filter: "echeance='" + currentDay + "'" });
+    updateDatePanel(currentDay);
+    map.closePopup();
+  });
+});
+
+// Construction manuelle de l'URL GetFeatureInfo (pas besoin de plugin externe)
+function getFeatureInfoUrl(latlng, layer, map) {
+  const point = map.latLngToContainerPoint(latlng, map.getZoom());
+  const size = map.getSize();
+  const bounds = map.getBounds();
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+
+  const params = {
+    request: 'GetFeatureInfo',
+    service: 'WMS',
+    srs: 'EPSG:4326',
+    styles: '',
+    transparent: true,
+    version: '1.1.1',
+    format: 'image/png',
+    bbox: sw.lng + ',' + sw.lat + ',' + ne.lng + ',' + ne.lat,
+    height: size.y,
+    width: size.x,
+    layers: layer.wmsParams.layers,
+    query_layers: layer.wmsParams.layers,
+    cql_filter: layer.wmsParams.cql_filter,
+    info_format: 'application/json',
+    feature_count: 5,
+    x: Math.round(point.x),
+    y: Math.round(point.y)
+  };
+
+  return GEOSERVER_WMS_URL + L.Util.getParamString(params, GEOSERVER_WMS_URL, true);
+}
+
+// Survol de la souris -> requête GetFeatureInfo avec throttle
+let popup = L.popup({ closeButton:false, autoPan:false });
+let hoverTimeout = null;
+let lastFetchController = null;
+
+map.on('mousemove', function (e) {
+  if (hoverTimeout) clearTimeout(hoverTimeout);
+  hoverTimeout = setTimeout(() => {
+    if (lastFetchController) lastFetchController.abort();
+    lastFetchController = new AbortController();
+
+    const url = getFeatureInfoUrl(e.latlng, wmsLayer, map);
+
+    fetch(url, { signal: lastFetchController.signal })
+      .then(r => r.json())
+      .then(data => {
+        if (data.features && data.features.length > 0) {
+          const p = data.features[0].properties;
+          const html = `
+            <div class="info-popup">
+              <b>Phénomène :</b> ${p.phenomene ?? '-'}<br>
+              <b>Seuil appliqué :</b> ${p.seuil_code ?? '-'}<br>
+              <b>Échéance :</b> ${p.echeance ?? '-'}<br>
+              <b>Date de validité :</b> ${p.date_val ?? '-'}
+              ${p.commentaire ? '<br><b>Commentaire :</b> ' + p.commentaire : ''}
+            </div>`;
+          popup.setLatLng(e.latlng).setContent(html).openOn(map);
+        } else {
+          map.closePopup(popup);
+        }
+      })
+      .catch(err => { if (err.name !== 'AbortError') console.error(err); });
+  }, 150); // throttle 150ms
+});
+
+map.on('mouseout', () => map.closePopup(popup));
+</script>
+</body>
+</html>
