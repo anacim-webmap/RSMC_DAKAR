@@ -155,7 +155,7 @@
 
 <div id="date-panel">
   <div class="echeance-label" id="echeance-label">Échéance : J1</div>
-  <div class="date-value" id="date-value">-</div>
+  <div class="date-value" id="date-value">Édité le : -</div>
 </div>
 
 <div id="logo">
@@ -173,18 +173,31 @@
 // depuis les données (le champ Date_val s'est révélé incohérent d'un
 // polygone à l'autre au sein d'un même fichier/échéance).
 // ============================================================
-const decalageParEcheance = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4 };
-
+// ============================================================
+// Date d'édition (date de mise à jour du bulletin) : UNE SEULE date,
+// affichée quel que soit le bouton J1..J5 sélectionné (contrairement à
+// avant où la date changeait avec l'échéance).
+//
+// Par défaut = date du jour (jour d'émission du bulletin). Si vous
+// disposez d'une date d'édition précise issue de vos données, définissez
+// une variable globale DATE_EDITION (ex: dans un <script> avant celui-ci,
+// ou en tête de ce fichier) au format "2026-02-15" ou new Date(...) :
+//   const DATE_EDITION = "2026-02-15";
+// Elle sera automatiquement utilisée à la place de la date du jour.
+// ============================================================
 function formatDateFR(date) {
   return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     .replace(/^./, c => c.toUpperCase());
 }
 
-function dateEcheance(n) {
-  const d = new Date();
-  d.setDate(d.getDate() + (decalageParEcheance[n] ?? 0));
-  return formatDateFR(d);
-}
+const dateEditionTexte = (() => {
+  if (typeof DATE_EDITION !== 'undefined' && DATE_EDITION) {
+    const d = (DATE_EDITION instanceof Date) ? DATE_EDITION : new Date(DATE_EDITION);
+    if (!isNaN(d)) return formatDateFR(d);
+  }
+  return formatDateFR(new Date());
+})();
+
 function recupererDonneesJour(n) {
   const nomVariable = 'carte_jour_' + n;
   if (typeof window[nomVariable] !== 'undefined') return window[nomVariable];
@@ -334,7 +347,12 @@ function onEachFeature(feature, layer) {
     mouseover: function (e) {
       if (estTactile) return; // sur tactile, on gère uniquement via 'click' ci-dessous
       const l = e.target;
-      l.bringToFront();
+      // IMPORTANT : ne PAS appeler l.bringToFront() ici. L'ordre d'empilement
+      // (petits polygones au-dessus des grands) est déjà fixé une fois pour
+      // toutes au chargement du jour (voir mettreEnAvantLesPetits). Le refaire
+      // à chaque survol replaçait le grand polygone (ex: T>40°C, Hs>2m)
+      // au-dessus du petit qu'il contient (ex: T>45°C, Hs>3m) dès qu'on le
+      // survolait, bloquant ensuite tout accès au petit polygone en dessous.
       l.setStyle({ weight: 3, color: '#000' });
       afficherInfo(feature.properties);
       positionnerInfo(e.containerPoint.x, e.containerPoint.y);
@@ -352,7 +370,8 @@ function onEachFeature(feature, layer) {
       if (dejaOuvert) {
         masquerInfo();
       } else {
-        l.bringToFront();
+        // Idem : pas de bringToFront ici, pour ne pas casser l'ordre
+        // d'empilement établi une fois pour toutes (petit au-dessus du grand).
         l.setStyle({ weight: 3, color: '#000' });
         afficherInfo(feature.properties);
         infoDiv.dataset.featureId = String(feature.id ?? '');
@@ -413,8 +432,8 @@ function afficherJour(n) {
     mettreEnAvantLesPetits(coucheActuelle);
   }
 
-  // Date affichée = calculée depuis l'échéance (fiable), pas depuis les données
-  document.getElementById('date-value').textContent = dateEcheance(n);
+  // Date affichée = date d'édition du bulletin, FIXE, identique pour J1..J5
+  document.getElementById('date-value').textContent = 'Édité le : ' + dateEditionTexte;
 
   document.getElementById('echeance-label').textContent = 'Échéance : J' + n;
 }
