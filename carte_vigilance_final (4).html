@@ -78,15 +78,6 @@
   #date-panel .echeance-label { font-weight:bold; font-size:14px; color:#1c5a85; }
   #date-panel .date-value { font-size:13px; color:#333; margin-top:2px; }
 
-  #lang-switch { display:flex; justify-content:flex-end; gap:4px; margin-bottom:6px; }
-  .lang-btn {
-    padding:3px 10px; font-size:11px; font-weight:bold; letter-spacing:0.3px;
-    border:1px solid #1c5a85; border-radius:4px; background:#fff; color:#1c5a85;
-    cursor:pointer; line-height:1.4;
-  }
-  .lang-btn.active { background:#1c5a85; color:#fff; }
-  .lang-btn:hover { background:#dbeaf5; }
-
   #alerte-donnees {
     position:absolute; top:70px; left:60px; z-index:1000;
     background:#fff3cd; color:#7a5b00; border:1px solid #ffe08a;
@@ -109,7 +100,6 @@
     }
     #date-panel .echeance-label { font-size:12px; }
     #date-panel .date-value { font-size:10px; }
-    .lang-btn { padding:2px 7px; font-size:10px; }
     #legend {
       top:8px; right:8px; bottom:auto; left:auto;
       max-width:150px; font-size:10px; padding:6px 8px; max-height:50vh;
@@ -133,7 +123,7 @@
 <body>
 
 <div id="panel">
-  <h3 id="panel-title">Échéance de prévision</h3>
+  <h3>Échéance de prévision</h3>
   <button class="day-btn active" data-day="1">J1</button>
   <button class="day-btn" data-day="2">J2</button>
   <button class="day-btn" data-day="3">J3</button>
@@ -145,7 +135,7 @@
 
 <div id="legend">
   <div id="legend-header">
-    <b id="legend-title-text">Légende</b><span id="legend-toggle-icon">▾</span>
+    <b>Légende</b><span id="legend-toggle-icon">▾</span>
   </div>
   <div id="legend-body">
   <div class="legend-row"><span class="swatch" style="background:#d9d94a"></span> G&gt;40km/h</div>
@@ -159,21 +149,17 @@
   <div class="legend-row"><span class="swatch" style="background:#0a5c0a"></span> HR&gt;100mm/24h</div>
   <div class="legend-row"><span class="swatch" style="background:#6ec6e0"></span> T&lt;10°C</div>
   <div class="legend-row"><span class="swatch" style="background:#1a4fa0"></span> T&lt;8°C</div>
-  <div class="legend-row"><span class="swatch" style="background:#ffffff;border-style:dashed;"></span> NSW <span id="legend-nsw-text">(aucun phénomène)</span></div>
+  <div class="legend-row"><span class="swatch" style="background:#ffffff;border-style:dashed;"></span> NSW (aucun phénomène)</div>
   </div>
 </div>
 
 <div id="date-panel">
-  <div id="lang-switch">
-    <button class="lang-btn active" data-lang="fr" title="Passer en français">FR</button>
-    <button class="lang-btn" data-lang="en" title="Switch to English">EN</button>
-  </div>
   <div class="echeance-label" id="echeance-label">Échéance : J1</div>
   <div class="date-value" id="date-value">Édité le : -</div>
 </div>
 
 <div id="logo">
-  <img id="logo-img" src="logo_anacim.png" alt="Logo ANACIM">
+  <img src="logo_anacim.png" alt="Logo ANACIM">
 </div>
 
 <div class="info-flottante" id="info-flottante"></div>
@@ -202,140 +188,26 @@
 //   const DATE_EDITION = "2026-02-15";
 // Elle sera automatiquement utilisée à la place de la date du jour.
 // ============================================================
-// ============================================================
-// BASCULE DE LANGUE (FR / EN) — un seul HTML, un seul jeu de données
-// (toujours en français, produit par build_vigilance_maps.py), traduit
-// à l'affichage. Voir setLang() plus bas pour le déclenchement.
-// ============================================================
-let currentLang = 'fr';
-
-const UI_TEXT = {
-  fr: {
-    panelTitle: 'Échéance de prévision',
-    legendTitle: 'Légende',
-    legendNSW: '(aucun phénomène)',
-    echeancePrefix: 'Échéance : ',
-    editePrefix: 'Édité le : ',
-    country: 'Pays',
-    iso3: 'Code ISO3 :',
-    phenomeneDefaut: 'Phénomène',
-    seuil: 'Seuil :',
-    valeurSeuil: 'Valeur seuil :',
-    echeanceChamp: 'Échéance :',
-    validite: 'Validité :',
-    commentaire: 'Commentaire :',
-    alerteManquant: n => `⚠️ Le fichier carte_jour_${n}.js est introuvable ou n'a pas encore été créé.`,
-    dayLabel: n => 'J' + n,
-    dayPrefix: 'J',
-    logoAlt: 'Logo ANACIM',
-    locale: 'fr-FR',
-  },
-  en: {
-    panelTitle: 'Forecast lead time',
-    legendTitle: 'Legend',
-    legendNSW: '(no phenomenon)',
-    echeancePrefix: 'Lead time: ',
-    editePrefix: 'Issued: ',
-    country: 'Country',
-    iso3: 'ISO3 code:',
-    phenomeneDefaut: 'Phenomenon',
-    seuil: 'Threshold:',
-    valeurSeuil: 'Threshold value:',
-    echeanceChamp: 'Lead time:',
-    validite: 'Valid:',
-    commentaire: 'Comment:',
-    alerteManquant: n => `⚠️ File carte_jour_${n}.js not found or not yet generated.`,
-    dayLabel: n => 'D' + n,
-    dayPrefix: 'D',
-    logoAlt: 'ANACIM logo',
-    locale: 'en-GB',
-  }
-};
-
-// Libellé complet du phénomène (ex: "G" -> "Vent" / "Wind"), utilisé pour
-// reconstruire "G: Vent" / "G: Wind" dans l'infobulle.
-const PHEN_LABELS = {
-  G:  { fr: 'Vent',        en: 'Wind' },
-  Hs: { fr: 'Houle',       en: 'Swell' },
-  RR: { fr: 'Pluie',       en: 'Rain' },
-  HR: { fr: 'Pluie',       en: 'Rain' },
-  T:  { fr: 'Température', en: 'Temperature' },
-};
-
-function phenCourt(phenomene) {
-  if (!phenomene) return '';
-  return String(phenomene).split(':')[0].trim();
-}
-
-// "G: Vent" (FR, tel quel dans les données) -> "G: Wind" en anglais.
-function traduirePhenomene(phenomene, lang) {
-  if (lang === 'fr') return phenomene || UI_TEXT.fr.phenomeneDefaut;
-  const court = phenCourt(phenomene);
-  const lbl = PHEN_LABELS[court];
-  if (!lbl) return phenomene || UI_TEXT.en.phenomeneDefaut;
-  return court + ': ' + lbl.en;
-}
-
-// Normalise un Seuil_code pour l'appariement avec la table de traduction
-// (les données contiennent des variantes : "FF" vs "G", casse différente,
-// "24h" parfois écrit sans le "h" final, "HR" vs "RR"...).
-function normaliserSeuilCode(code) {
-  if (!code) return '';
-  let c = String(code).toUpperCase().replace(/FF/g, 'G').replace(/\s+/g, '');
-  c = c.replace(/^HR/, 'RR');
-  c = c.replace(/^(RR)>(\d+)MM\/(\d+)$/, '$1>$2MM/$3H'); // "RR>50MM/24" -> "RR>50MM/24H"
-  return c;
-}
-
-// Formulations anglaises standardisées par seuil (style professionnel,
-// indépendantes du texte libre "Commentair" saisi en français dans les
-// données sources).
-const COMMENTAIRES_EN = {
-  'G>40KM/H':     'Strong wind zone: exercise caution, particularly for navigation.',
-  'G>60KM/H':     'Very strong wind zone: high risk, avoid navigation.',
-  'HS>2M':        'High swell zone: exercise caution, particularly for navigation.',
-  'HS>3M':        'Dangerous swell zone: high risk, avoid navigation.',
-  'RR>50MM/24H':  'Heavy rainfall zone (>50 mm/24h).',
-  'RR>50MM/12H':  'Heavy rainfall zone (>50 mm/12h).',
-  'RR>100MM/24H': 'Very heavy rainfall zone (>100 mm/24h): high flood risk.',
-  'T>40°C':       'High temperature zone (>40°C).',
-  'T>45°C':       'Extreme temperature zone (>45°C): high risk.',
-  'T<10°C':       'Cool temperature zone (<10°C).',
-  'T<8°C':        'Cold temperature zone (<8°C).',
-};
-
-// En français : on affiche tel quel le commentaire de la donnée source.
-// En anglais : on utilise la formulation standardisée ci-dessus (par
-// phénomène/seuil) plutôt qu'une traduction littérale du texte libre, pour
-// garantir un rendu homogène et professionnel quel que soit le libellé
-// exact saisi côté prévisionniste. Repli générique si le seuil est inconnu.
-function traduireCommentaire(props, lang) {
-  if (lang === 'fr') return props.Commentair || '';
-  const cle = normaliserSeuilCode(props.Seuil_code);
-  if (COMMENTAIRES_EN[cle]) return COMMENTAIRES_EN[cle];
-  return traduirePhenomene(props.Phenomene, 'en') + ' zone — threshold: ' + (props.Seuil_code || '-');
-}
-
-function formatDateLongue(date, lang) {
-  return date.toLocaleDateString(UI_TEXT[lang].locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+function formatDateFR(date) {
+  return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     .replace(/^./, c => c.toUpperCase());
 }
 
-function calculerDateEditionTexte(lang) {
+const dateEditionTexte = (() => {
   if (typeof DATE_EDITION !== 'undefined' && DATE_EDITION) {
     const d = (DATE_EDITION instanceof Date) ? DATE_EDITION : new Date(DATE_EDITION);
-    if (!isNaN(d)) return formatDateLongue(d, lang);
+    if (!isNaN(d)) return formatDateFR(d);
   }
-  return formatDateLongue(new Date(), lang);
-}
+  return formatDateFR(new Date());
+})();
 
 // Formate une date ISO ("2026-08-31") en date courte lisible ("31/08/2026").
 // Renvoie la valeur d'origine si elle n'est pas reconnue comme une date.
-function formatDateCourte(valeur, lang) {
+function formatDateCourte(valeur) {
   if (!valeur) return null;
   const d = new Date(valeur);
   if (isNaN(d)) return valeur;
-  return d.toLocaleDateString(UI_TEXT[lang || currentLang].locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function recupererDonneesJour(n) {
@@ -344,17 +216,11 @@ function recupererDonneesJour(n) {
   return null;
 }
 
-const map = L.map('map', { zoomControl: true }).setView([15.5, -5], 5);
+const map = L.map('map', { zoomControl: true }).setView([15.5, -7], 5);
 
-// NB : le serveur communautaire tile.openstreetmap.org n'est pas destiné à un
-// usage opérationnel/institutionnel (il bloque désormais les applis qui ne
-// respectent pas sa politique d'usage : ouverture en local, absence de
-// User-Agent applicatif, etc. -> tuiles "Access blocked").
-// Fond de carte : imagerie satellite Esri World Imagery (gratuit, sans clé
-// API, fonctionne aussi bien en local (file://) qu'une fois déployé).
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-  attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-  maxZoom: 19
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 12
 }).addTo(map);
 
 // Panes dédiées : le fond de carte (pays) reste toujours sous les polygones de vigilance
@@ -393,22 +259,19 @@ function positionnerInfo(x, y) {
 }
 
 function afficherInfo(props) {
-  const t = UI_TEXT[currentLang];
   const dateDebut = formatDateCourte(props.Date_début);
   const dateFin = formatDateCourte(props.Date_fin);
   const periodeValidite = (dateDebut && dateFin) ? (dateDebut + ' → ' + dateFin)
     : (dateDebut || dateFin || '-');
-  const echeanceAffichee = props.Echeance ? t.dayPrefix + String(props.Echeance).replace(/^[JD]/i, '') : '-';
-  const commentaire = traduireCommentaire(props, currentLang);
 
   infoDiv.style.display = 'block';
   infoDiv.innerHTML =
-    '<b class="titre">' + traduirePhenomene(props.Phenomene, currentLang) + '</b><br>' +
-    '<b>' + t.seuil + '</b> ' + (props.Seuil_code ?? '-') + '<br>' +
-    '<b>' + t.valeurSeuil + '</b> ' + (props.Seuil_val ?? '-') + ' ' + (props.Unite ?? '') + '<br>' +
-    '<b>' + t.echeanceChamp + '</b> ' + echeanceAffichee + '<br>' +
-    '<b>' + t.validite + '</b> ' + periodeValidite +
-    (commentaire ? '<br><b>' + t.commentaire + '</b> ' + commentaire : '');
+    '<b class="titre">' + (props.Phenomene ?? 'Phénomène') + '</b><br>' +
+    '<b>Seuil :</b> ' + (props.Seuil_code ?? '-') + '<br>' +
+    '<b>Valeur seuil :</b> ' + (props.Seuil_val ?? '-') + ' ' + (props.Unite ?? '') + '<br>' +
+    '<b>Échéance :</b> ' + (props.Echeance ?? '-') + '<br>' +
+    '<b>Validité :</b> ' + periodeValidite +
+    (props.Commentair ? '<br><b>Commentaire :</b> ' + props.Commentair : '');
 }
 
 function masquerInfo() {
@@ -465,8 +328,8 @@ function onEachPays(feature, layer) {
       if (estTactile) return; // sur tactile, on gère uniquement via 'click' ci-dessous
       infoDiv.style.display = 'block';
       infoDiv.innerHTML =
-        '<b class="titre">' + (feature.properties.ADM0_NAME ?? UI_TEXT[currentLang].country) + '</b><br>' +
-        '<b>' + UI_TEXT[currentLang].iso3 + '</b> ' + (feature.properties.ISO3 ?? '-');
+        '<b class="titre">' + (feature.properties.ADM0_NAME ?? 'Pays') + '</b><br>' +
+        '<b>Code ISO3 :</b> ' + (feature.properties.ISO3 ?? '-');
       positionnerInfo(e.containerPoint.x, e.containerPoint.y);
     },
     mouseout: function () { if (!estTactile) masquerInfo(); },
@@ -474,8 +337,8 @@ function onEachPays(feature, layer) {
       if (!estTactile) return; // sur PC, le survol suffit
       infoDiv.style.display = 'block';
       infoDiv.innerHTML =
-        '<b class="titre">' + (feature.properties.ADM0_NAME ?? UI_TEXT[currentLang].country) + '</b><br>' +
-        '<b>' + UI_TEXT[currentLang].iso3 + '</b> ' + (feature.properties.ISO3 ?? '-');
+        '<b class="titre">' + (feature.properties.ADM0_NAME ?? 'Pays') + '</b><br>' +
+        '<b>Code ISO3 :</b> ' + (feature.properties.ISO3 ?? '-');
       positionnerInfo(e.containerPoint.x, e.containerPoint.y);
       L.DomEvent.stopPropagation(e);
     }
@@ -564,7 +427,6 @@ function afficherJour(n) {
   jourActuel = n;
   const donnees = recupererDonneesJour(n);
   const alerte = document.getElementById('alerte-donnees');
-  const t = UI_TEXT[currentLang];
 
   if (coucheActuelle) {
     map.removeLayer(coucheActuelle);
@@ -574,7 +436,7 @@ function afficherJour(n) {
 
   if (!donnees) {
     alerte.style.display = 'block';
-    alerte.textContent = t.alerteManquant(n);
+    alerte.textContent = `⚠️ Le fichier carte_jour_${n}.js est introuvable ou n'a pas encore été créé.`;
   } else {
     alerte.style.display = 'none';
     coucheActuelle = L.geoJSON(donnees, {
@@ -588,40 +450,10 @@ function afficherJour(n) {
   }
 
   // Date affichée = date d'édition du bulletin, FIXE, identique pour J1..J5
-  document.getElementById('date-value').textContent = t.editePrefix + calculerDateEditionTexte(currentLang);
+  document.getElementById('date-value').textContent = 'Édité le : ' + dateEditionTexte;
 
-  document.getElementById('echeance-label').textContent = t.echeancePrefix + t.dayLabel(n);
+  document.getElementById('echeance-label').textContent = 'Échéance : J' + n;
 }
-
-// ============================================================
-// Basculement de langue : met à jour tous les textes statiques (panneau,
-// légende, boutons J/D, bouton actif) puis rejoue afficherJour() pour
-// rafraîchir échéance/date/alerte dans la nouvelle langue. La bulle
-// d'info et les popups pays se traduisent automatiquement à la prochaine
-// ouverture puisqu'ils lisent `currentLang` au moment de l'affichage.
-// ============================================================
-function setLang(lang) {
-  if (!UI_TEXT[lang] || lang === currentLang) return;
-  currentLang = lang;
-  document.documentElement.lang = lang;
-
-  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
-
-  const t = UI_TEXT[lang];
-  document.getElementById('panel-title').textContent = t.panelTitle;
-  document.getElementById('legend-title-text').textContent = t.legendTitle;
-  document.getElementById('legend-nsw-text').textContent = t.legendNSW;
-  document.getElementById('logo-img').alt = t.logoAlt;
-  document.querySelectorAll('.day-btn').forEach(b => {
-    b.textContent = t.dayLabel(parseInt(b.dataset.day, 10));
-  });
-
-  afficherJour(jourActuel); // recalcule échéance / date d'édition / alerte
-}
-
-document.querySelectorAll('.lang-btn').forEach(btn => {
-  btn.addEventListener('click', () => setLang(btn.dataset.lang));
-});
 
 // ============================================================
 // Gestion des boutons de jour
@@ -634,7 +466,7 @@ document.querySelectorAll('.day-btn').forEach(btn => {
   });
 });
 
-// Affichage initial (français par défaut, J1)
+// Affichage initial (J1)
 afficherJour(1);
 </script>
 </body>
