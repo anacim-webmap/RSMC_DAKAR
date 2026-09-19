@@ -338,6 +338,16 @@ function formatDateCourte(valeur, lang) {
   return d.toLocaleDateString(UI_TEXT[lang || currentLang].locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+// Les échéances SWFDP sont conventionnellement valides de 12h00 à 12h00
+// (TU). Cette heure fixe est ajoutée à l'affichage (elle n'est pas stockée
+// dans Date_début / Date_fin, qui ne contiennent qu'une date).
+function formatDateAvecHeure(valeur, lang) {
+  const dateCourte = formatDateCourte(valeur, lang);
+  if (!dateCourte) return null;
+  const heureTexte = lang === 'en' ? 'at 12:00' : 'à 12h00';
+  return dateCourte + ' ' + heureTexte;
+}
+
 function recupererDonneesJour(n) {
   const nomVariable = 'carte_jour_' + n;
   if (typeof window[nomVariable] !== 'undefined') return window[nomVariable];
@@ -394,9 +404,9 @@ function positionnerInfo(x, y) {
 
 function afficherInfo(props) {
   const t = UI_TEXT[currentLang];
-  const dateDebut = formatDateCourte(props.Date_début);
-  const dateFin = formatDateCourte(props.Date_fin);
-  const periodeValidite = (dateDebut && dateFin) ? (dateDebut + ' → ' + dateFin)
+  const dateDebut = formatDateAvecHeure(props.Date_début, currentLang);
+  const dateFin = formatDateAvecHeure(props.Date_fin, currentLang);
+  const periodeValidite = (dateDebut && dateFin) ? (dateDebut + ' --- ' + dateFin)
     : (dateDebut || dateFin || '-');
   const echeanceAffichee = props.Echeance ? t.dayPrefix + String(props.Echeance).replace(/^[JD]/i, '') : '-';
   const commentaire = traduireCommentaire(props, currentLang);
