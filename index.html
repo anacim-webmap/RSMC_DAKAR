@@ -341,11 +341,25 @@ function formatDateCourte(valeur, lang) {
 // Les échéances SWFDP sont conventionnellement valides de 12h00 à 12h00
 // (TU). Cette heure fixe est ajoutée à l'affichage (elle n'est pas stockée
 // dans Date_début / Date_fin, qui ne contiennent qu'une date).
-function formatDateAvecHeure(valeur, lang) {
+// Heures de validité SWFDP : l'échéance J1/D1 démarre à 12h00 (heure
+// d'émission du bulletin) et se termine à 00h00 ; les échéances suivantes
+// (J2..J5 / D2..D5) sont valides de 00h00 à 00h00. Ces heures ne sont pas
+// stockées dans Date_début / Date_fin (qui ne contiennent qu'une date) :
+// elles sont déduites ici du numéro d'échéance.
+function heuresValidite(echeance) {
+  const numero = echeance ? parseInt(String(echeance).replace(/^[JD]/i, ''), 10) : null;
+  return (numero === 1) ? { debut: 12, fin: 0 } : { debut: 0, fin: 0 };
+}
+
+function formatHeureTexte(heure, lang) {
+  const hh = String(heure).padStart(2, '0');
+  return lang === 'en' ? `at ${hh}:00` : `à ${hh}h00`;
+}
+
+function formatDateAvecHeure(valeur, heure, lang) {
   const dateCourte = formatDateCourte(valeur, lang);
   if (!dateCourte) return null;
-  const heureTexte = lang === 'en' ? 'at 12:00' : 'à 12h00';
-  return dateCourte + ' ' + heureTexte;
+  return dateCourte + ' ' + formatHeureTexte(heure, lang);
 }
 
 function recupererDonneesJour(n) {
@@ -404,8 +418,9 @@ function positionnerInfo(x, y) {
 
 function afficherInfo(props) {
   const t = UI_TEXT[currentLang];
-  const dateDebut = formatDateAvecHeure(props.Date_début, currentLang);
-  const dateFin = formatDateAvecHeure(props.Date_fin, currentLang);
+  const heures = heuresValidite(props.Echeance);
+  const dateDebut = formatDateAvecHeure(props.Date_début, heures.debut, currentLang);
+  const dateFin = formatDateAvecHeure(props.Date_fin, heures.fin, currentLang);
   const periodeValidite = (dateDebut && dateFin) ? (dateDebut + ' --- ' + dateFin)
     : (dateDebut || dateFin || '-');
   const echeanceAffichee = props.Echeance ? t.dayPrefix + String(props.Echeance).replace(/^[JD]/i, '') : '-';
