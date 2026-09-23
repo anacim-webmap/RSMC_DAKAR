@@ -3,178 +3,86 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-<title>DAKAR - RSMC Guidance Forecast (interactive)</title>
+<title>Situation pluviometrique du PLUVIO DU 22 Septembre 2026</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-
-<!-- ===================== DONNÉES DES 5 ÉCHÉANCES =====================
-     Chaque fichier définit une variable globale (carte_jour_1 ... carte_jour_5)
-     contenant un GeoJSON FeatureCollection. Placez ces fichiers dans le même
-     dossier que ce HTML. ==================================================== -->
-<script src="carte_jour_1.js"></script>
-<script src="carte_jour_2.js"></script>
-<script src="carte_jour_3.js"></script>
-<script src="carte_jour_4.js"></script>
-<script src="carte_jour_5.js"></script>
-
-<!-- ===================== FOND DE CARTE — LIMITES DES PAYS =====================
-     **Contours administratifs (Afrique de l'Ouest)**, affichés en permanence,
-     quelle que soit l'échéance sélectionnée. ==================================== -->
-<script src="afrique_ouest.js"></script>
-
 <style>
-  * { box-sizing: border-box; }
+  * { box-sizing:border-box; }
   html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
-  #map { height:100vh; width:100%; }
+  #map { position:absolute; top:74px; bottom:0; left:0; right:0; }
 
-  #panel {
-    position:absolute; top:12px; left:60px; z-index:1000;
-    background:rgba(255,255,255,0.95); padding:10px 14px; border-radius:6px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+  header {
+    position:absolute; top:0; left:0; right:0; height:74px; z-index:1000;
+    background:#ffffff; border-bottom:3px solid #1c3f8f;
+    padding:8px 16px; overflow:hidden;
   }
-  #panel h3 { margin:0 0 6px 0; font-size:15px; }
-  .day-btn {
-    padding:6px 12px; margin:2px; border:1px solid #888; border-radius:4px;
-    background:#f0f0f0; cursor:pointer; font-size:13px;
-  }
-  .day-btn.active { background:#2c7fb8; color:#fff; border-color:#1c5a85; }
-  .day-btn:hover { background:#dbeaf5; }
+  header h1 { margin:0; font-size:19px; color:#1c3f8f; }
+  header p  { margin:2px 0 0 0; font-size:12px; color:#444; }
 
   #legend {
     position:absolute; bottom:20px; right:12px; z-index:1000;
     background:rgba(255,255,255,0.95); padding:10px 14px; border-radius:6px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.3); font-size:12px; max-width:240px;
-    max-height:60vh; overflow-y:auto;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3); font-size:12px;
   }
-  #legend div.legend-row { display:flex; align-items:center; margin:2px 0; }
-  #legend span.swatch { width:14px; height:14px; display:inline-block; margin-right:6px; border:1px solid #666; flex:none; }
-  #legend-header { display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; }
-  #legend-body { overflow:hidden; max-height:400px; transition:max-height 0.2s ease; margin-top:4px; }
-  #legend.collapsed #legend-body { max-height:0; margin-top:0; }
-  #legend.collapsed #legend-toggle-icon { transform:rotate(-90deg); }
-  #legend-toggle-icon { transition:transform 0.2s ease; }
+  #legend b { display:block; margin-bottom:6px; font-size:13px; color:#1c3f8f; }
+  #legend div.legend-row { display:flex; align-items:center; margin:3px 0; }
+  #legend span.swatch { border-radius:50%; display:inline-block; margin-right:8px; border:1px solid #555; flex:none; }
 
-  /* Bulle d'info qui suit le curseur (comme meteo_senegal_responsive.html) */
   .info-flottante {
     position:absolute; pointer-events:none; z-index:1100;
-    padding:10px 12px; font:14px Arial, Helvetica, sans-serif;
-    background:rgba(255,255,255,0.97); box-shadow:0 0 15px rgba(0,0,0,0.25);
-    border-radius:8px; display:none; max-width:260px; line-height:1.45;
+    padding:8px 11px; font:13px Arial, Helvetica, sans-serif;
+    background:rgba(255,255,255,0.97); box-shadow:0 0 12px rgba(0,0,0,0.25);
+    border-radius:6px; display:none; max-width:240px; line-height:1.4;
   }
-  .info-flottante b.titre { color:#1c5a85; font-size:15px; }
+  .info-flottante b.titre { color:#1c3f8f; font-size:14px; }
+
+  #recherche {
+    position:absolute; top:12px; right:12px; z-index:1000;
+  }
+  #recherche input {
+    padding:6px 10px; border-radius:6px; border:1px solid #888; font-size:13px; width:180px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.25);
+  }
 
   #logo {
     position:absolute; bottom:20px; left:12px; z-index:1000;
     background:rgba(255,255,255,0.9); padding:6px 8px; border-radius:6px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+    box-shadow:0 2px 6px rgba(0,0,0,0.3); display:block;
   }
-  #logo img { display:block; height:70px; width:auto; }
+  #logo img { display:block; height:60px; width:auto; }
 
-  #date-panel {
-    position:absolute; top:12px; right:12px; z-index:1000;
-    background:rgba(255,255,255,0.95); padding:8px 14px; border-radius:6px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.3); text-align:right;
-  }
-  #date-panel .echeance-label { font-weight:bold; font-size:14px; color:#1c5a85; }
-  #date-panel .date-value { font-size:13px; color:#333; margin-top:2px; }
-
-  #lang-switch { display:flex; justify-content:flex-end; gap:4px; margin-bottom:6px; }
-  .lang-btn {
-    padding:3px 10px; font-size:11px; font-weight:bold; letter-spacing:0.3px;
-    border:1px solid #1c5a85; border-radius:4px; background:#fff; color:#1c5a85;
-    cursor:pointer; line-height:1.4;
-  }
-  .lang-btn.active { background:#1c5a85; color:#fff; }
-  .lang-btn:hover { background:#dbeaf5; }
-
-  #alerte-donnees {
-    position:absolute; top:70px; left:60px; z-index:1000;
-    background:#fff3cd; color:#7a5b00; border:1px solid #ffe08a;
-    padding:8px 12px; border-radius:6px; font-size:12px; max-width:260px;
-    display:none;
-  }
-
-  /* ===================== ADAPTATION MOBILE / TABLETTE ===================== */
   @media (max-width: 600px) {
-    #panel {
-      left:52px; top:8px; padding:6px 8px; max-width:calc(100vw - 64px);
-    }
-    #panel h3 { font-size:12px; margin-bottom:4px; }
-    .day-btn {
-      padding:9px 8px; margin:2px 1px; font-size:12px; min-width:38px;
-    }
-    #date-panel {
-      top:auto; bottom:8px; right:8px; padding:6px 10px;
-      max-width:150px;
-    }
-    #date-panel .echeance-label { font-size:12px; }
-    #date-panel .date-value { font-size:10px; }
-    .lang-btn { padding:2px 7px; font-size:10px; }
-    #legend {
-      top:8px; right:8px; bottom:auto; left:auto;
-      max-width:150px; font-size:10px; padding:6px 8px; max-height:50vh;
-    }
-    #legend span.swatch { width:11px; height:11px; margin-right:4px; }
-    #logo { bottom:8px; left:8px; padding:4px 6px; }
-    #logo img { height:42px; }
-    #alerte-donnees { left:52px; top:80px; max-width:calc(100vw - 64px); font-size:11px; }
-    .info-flottante { max-width:200px; font-size:12px; padding:8px 10px; }
-  }
-
-  /* Cible spécifiquement les très petits écrans (téléphones en portrait) */
-  @media (max-width: 380px) {
-    #panel h3 { display:none; } /* le titre cède la place aux boutons */
-    .day-btn { padding:8px 6px; font-size:11px; min-width:32px; }
-    #date-panel { max-width:130px; }
-    #legend { max-width:130px; }
+    header h1 { font-size:15px; }
+    header p { font-size:10px; }
+    #legend { font-size:10px; padding:6px 8px; }
+    #recherche input { width:120px; font-size:12px; }
+    #logo { bottom:20px; left:8px; padding:4px 6px; }
+    #logo img { height:44px; }
   }
 </style>
 </head>
 <body>
 
-<div id="panel">
-  <h3 id="panel-title">Échéance de prévision</h3>
-  <button class="day-btn active" data-day="1">J1</button>
-  <button class="day-btn" data-day="2">J2</button>
-  <button class="day-btn" data-day="3">J3</button>
-  <button class="day-btn" data-day="4">J4</button>
-  <button class="day-btn" data-day="5">J5</button>
-</div>
+<header>
+  <h1>Situation pluviometrique du PLUVIO DU 22 Septembre 2026</h1>
+  <p>Pluie journaliere observee — 79 postes actifs | Maximum : 50 mm (BOUTOUCOU-FARA)</p>
+</header>
 
-<div id="alerte-donnees"></div>
+<div id="recherche">
+  <input type="text" id="champ-recherche" placeholder="Rechercher une localite...">
+</div>
 
 <div id="legend">
-  <div id="legend-header">
-    <b id="legend-title-text">Légende</b><span id="legend-toggle-icon">▾</span>
-  </div>
-  <div id="legend-body">
-  <div class="legend-row"><span class="swatch" style="background:#d9d94a"></span> G&gt;40km/h</div>
-  <div class="legend-row"><span class="swatch" style="background:#c9932e"></span> G&gt;60km/h</div>
-  <div class="legend-row"><span class="swatch" style="background:#e844d1"></span> Hs&gt;2m</div>
-  <div class="legend-row"><span class="swatch" style="background:#5c1f78"></span> Hs&gt;3m</div>
-  <div class="legend-row"><span class="swatch" style="background:#e07b1a"></span> T&gt;40°C</div>
-  <div class="legend-row"><span class="swatch" style="background:#c0392b"></span> T&gt;45°C</div>
-  <div class="legend-row"><span class="swatch" style="background:#8fd694"></span> HR&gt;50mm/12h</div>
-  <div class="legend-row"><span class="swatch" style="background:#00e800"></span> HR&gt;50mm/24h</div>
-  <div class="legend-row"><span class="swatch" style="background:#0a5c0a"></span> HR&gt;100mm/24h</div>
-  <div class="legend-row"><span class="swatch" style="background:#6ec6e0"></span> T&lt;10°C</div>
-  <div class="legend-row"><span class="swatch" style="background:#1a4fa0"></span> T&lt;8°C</div>
-  <div class="legend-row"><span class="swatch" style="background:#ffffff;border-style:dashed;"></span> NSW <span id="legend-nsw-text">(aucun phénomène)</span></div>
-  </div>
+  <b>Pluie 24h (mm)</b>
+  <div class="legend-row"><span class="swatch" style="width:10px;height:10px;background:#cfe2f5"></span>0.1 - 5 mm</div>
+  <div class="legend-row"><span class="swatch" style="width:14px;height:14px;background:#7fb3e0"></span>5 - 10 mm</div>
+  <div class="legend-row"><span class="swatch" style="width:18px;height:18px;background:#1a4fa0"></span>10 - 25 mm</div>
+  <div class="legend-row"><span class="swatch" style="width:24px;height:24px;background:#2e8b3d"></span>25 - 50 mm</div>
+  <div class="legend-row"><span class="swatch" style="width:32px;height:32px;background:#f0902d"></span>50 - 100 mm</div>
+  <div class="legend-row"><span class="swatch" style="width:40px;height:40px;background:#c0392b"></span>> 100 mm</div>
 </div>
 
-<div id="date-panel">
-  <div id="lang-switch">
-    <button class="lang-btn active" data-lang="fr" title="Passer en français">FR</button>
-    <button class="lang-btn" data-lang="en" title="Switch to English">EN</button>
-  </div>
-  <div class="echeance-label" id="echeance-label">Échéance : J1</div>
-  <div class="date-value" id="date-value">Édité le : -</div>
-</div>
-
-<div id="logo">
-  <img id="logo-img" src="logo_anacim.png" alt="Logo ANACIM">
-</div>
+<div id="logo"><img src="logo_anacim.png" alt="Logo ANACIM"></div>
 
 <div class="info-flottante" id="info-flottante"></div>
 
@@ -182,485 +90,106 @@
 
 <script>
 // ============================================================
-// Date affichée dans le panneau (bandeau du haut) : calculée à partir
-// de l'échéance (J1 = aujourd'hui, J2 = +1 jour, ... J5 = +4 jours).
-//
-// La date de validité de chaque polygone (affichée dans l'infobulle au
-// survol/tap) est désormais lue directement depuis les données, sous
-// forme d'une période Date_début -> Date_fin (générée automatiquement
-// par build_vigilance_maps.py à partir de la date d'émission).
+// Donnees des postes pluviometriques (embarquees, generees automatiquement
+// depuis le CSV source : Pluvio_journalier_220926.csv)
 // ============================================================
-// ============================================================
-// Date d'édition (date de mise à jour du bulletin) : UNE SEULE date,
-// affichée quel que soit le bouton J1..J5 sélectionné (contrairement à
-// avant où la date changeait avec l'échéance).
-//
-// Par défaut = date du jour (jour d'émission du bulletin). Si vous
-// disposez d'une date d'édition précise issue de vos données, définissez
-// une variable globale DATE_EDITION (ex: dans un <script> avant celui-ci,
-// ou en tête de ce fichier) au format "2026-02-15" ou new Date(...) :
-//   const DATE_EDITION = "2026-02-15";
-// Elle sera automatiquement utilisée à la place de la date du jour.
-// ============================================================
-// ============================================================
-// BASCULE DE LANGUE (FR / EN) — un seul HTML, un seul jeu de données
-// (toujours en français, produit par build_vigilance_maps.py), traduit
-// à l'affichage. Voir setLang() plus bas pour le déclenchement.
-// ============================================================
-let currentLang = 'fr';
+const stations = [{"zone": "ZONE NORD", "feuille": "Nord", "station": "Saint-Louis-Aero", "lon": -16.27, "lat": 16.03, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "Saint-louis Agri", "lon": -16.48, "lat": 15.96, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "DAGANA", "lon": -15.5, "lat": 16.52, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "BOKHOL", "lon": -16.42, "lat": 16.03, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LAMPSAR", "lon": -16.33, "lat": 16.1, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MBANE", "lon": -15.78, "lat": 16.27, "pluie_mm": 5.0, "pluie_orig": "5"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NDIAYE", "lon": -16.27, "lat": 16.2, "pluie_mm": 0.1, "pluie_orig": "TR"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "RAO", "lon": -16.38, "lat": 15.92, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MPAL", "lon": -16.27, "lat": 15.92, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "RICHARD TOLL", "lon": -15.7, "lat": 16.45, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "ROSS-BETHIO", "lon": -16.13, "lat": 16.28, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "ROSSO-SENEGAL", "lon": -15.8, "lat": 16.5, "pluie_mm": 0.1, "pluie_orig": "TR"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "SAVOIGNE", "lon": -16.42, "lat": 16.03, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "PODOR", "lon": -14.96, "lat": 16.65, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "AERE LAO", "lon": -14.32, "lat": 16.4, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "FANAYE DIERI", "lon": -15.22, "lat": 16.52, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "FETOLAOBE", "lon": -15.23, "lat": 16.17, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "M'BIDY", "lon": -14.93, "lat": 16.13, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MBOLO BIRANE", "lon": -13.8, "lat": 16.05, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MBOUMBA", "lon": -14.02, "lat": 16.18, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NAMAREL", "lon": -14.75, "lat": 16.32, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "N'DIOUM", "lon": -14.65, "lat": 16.1, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "PETE", "lon": -13.93, "lat": 16.1, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "SALDE", "lon": -13.88, "lat": 16.17, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "TATKI", "lon": -15.28, "lat": 16.22, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "THILE BOUBACAR", "lon": -15.08, "lat": 16.52, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "GUEYE-KADAR", "lon": -14.32, "lat": 15.87, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "REWANE", "lon": -14.38, "lat": 15.4, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KOURBOL", "lon": -14.25, "lat": 15.48, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "YARE- LAO", "lon": -14.53, "lat": 16.03, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NDIAYENE PENDAO", "lon": -15.55, "lat": 16.44, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "CASCAS", "lon": -14.05, "lat": 16.38, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "DODEL", "lon": -14.69, "lat": 16.5, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "WARKERE FANAYE", "lon": -15.16, "lat": 16.2, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "RANEROU-FERLO", "lon": -13.58, "lat": 15.18, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "BELEL", "lon": -13.67, "lat": 14.55, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "FETE BOWE", "lon": -13.9, "lat": 14.85, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KATANE", "lon": -14.11, "lat": 15.5, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LOUMBOUL-SAMBA-ABDOUL", "lon": -13.89, "lat": 15.32, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LOUGRE-THIOLY", "lon": -14.58, "lat": 15.57, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LOUGRE-MBABA", "lon": -14.63, "lat": 14.85, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NAMARY", "lon": -13.67, "lat": 14.74, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NAOURE", "lon": -14.26, "lat": 15.02, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "VELINGARA-FERLO", "lon": -14.74, "lat": 14.67, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "YOUNOUFERE", "lon": -14.46, "lat": 15.15, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "THIONOKH", "lon": -14.44, "lat": 14.37, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "SALALATOU", "lon": -13.56, "lat": 14.46, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MBAME", "lon": -14.1, "lat": 14.83, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LOUGA METEO", "lon": -16.17, "lat": 15.67, "pluie_mm": 0.1, "pluie_orig": "TR"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KEUR MOMAR SARR", "lon": -15.96, "lat": 16.0, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "DAKHAR NGOGNE", "lon": -16.58, "lat": 15.22, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "DAROU MOUSTY", "lon": -16.04, "lat": 15.04, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KANENE NDIOB", "lon": -16.17, "lat": 15.36, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LEONA", "lon": -16.43, "lat": 15.63, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MAKATARE", "lon": -16.41, "lat": 15.79, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MBAR TOUBAB", "lon": -15.67, "lat": 16.02, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MBEDIENE", "lon": -16.2, "lat": 15.5, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "N'DANDE", "lon": -16.56, "lat": 15.28, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NDIAGNE", "lon": -16.07, "lat": 15.42, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "BOULAL", "lon": -15.66, "lat": 15.4, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KELLE", "lon": -16.16, "lat": 15.33, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NGAGNE DIOUF", "lon": -16.2, "lat": 15.18, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NGUERMALAL", "lon": -15.84, "lat": 15.85, "pluie_mm": 0.1, "pluie_orig": "TR"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NGUIDILE", "lon": -16.21, "lat": 15.77, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "SAKAL", "lon": -16.06, "lat": 15.6, "pluie_mm": 0.1, "pluie_orig": "TR"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "SAM NDIAYE", "lon": -16.37, "lat": 15.71, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KELLE", "lon": -16.16, "lat": 15.33, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NGUEUNE SARR", "lon": -16.27, "lat": 15.71, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "BOULAL", "lon": -15.66, "lat": 15.4, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "POTOU", "lon": -16.5, "lat": 15.72, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NIOMRE", "lon": -16.09, "lat": 15.82, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "SAGATA-GUETH", "lon": -16.17, "lat": 15.28, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "THIOLOM FALL", "lon": -16.32, "lat": 15.33, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "THIAMENE KAYOR", "lon": -15.86, "lat": 15.42, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KEBEMER", "lon": -16.44, "lat": 15.37, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "GUEOUL", "lon": -16.34, "lat": 15.48, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "COKI", "lon": -15.89, "lat": 15.61, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LORO", "lon": -16.08, "lat": 15.23, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LINGUERE METEO", "lon": -15.07, "lat": 15.27, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "BARKEDJI", "lon": -14.85, "lat": 15.27, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KAMB", "lon": -15.42, "lat": 15.52, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "CEEBE-COLY", "lon": -15.27, "lat": 15.4, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "DAHRA", "lon": -15.47, "lat": 15.33, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "DEALY", "lon": -15.72, "lat": 15.03, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "DODJI", "lon": -14.93, "lat": 15.53, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "DOUNDODJI", "lon": -15.18, "lat": 15.47, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "GASSANE", "lon": -15.28, "lat": 14.82, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "GOREE-WALY", "lon": -15.2, "lat": 15.3, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "GOULOM-MBETHIO", "lon": -15.28, "lat": 15.47, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "GUENENE", "lon": -15.12, "lat": 15.37, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KADD-BALLODJI", "lon": -15.77, "lat": 14.97, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KADJI", "lon": -15.05, "lat": 15.45, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KADJI-MADIA", "lon": -15.05, "lat": 15.45, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KHOGUE", "lon": -15.17, "lat": 15.28, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LABGAR", "lon": -14.8, "lat": 15.82, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LINDE-MOURIDE", "lon": -15.13, "lat": 15.13, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LINGUERE VILLE", "lon": -15.1, "lat": 15.38, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LOUMBI", "lon": -15.06, "lat": 13.35, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MBEULEUKHE", "lon": -15.35, "lat": 15.63, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MBOULA", "lon": -15.43, "lat": 15.67, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NGARAAF", "lon": -15.28, "lat": 15.35, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NGUITH", "lon": -15.15, "lat": 15.4, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NGOUYE-DIERY", "lon": -15.25, "lat": 15.55, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "OUARKHOKH", "lon": -15.23, "lat": 15.38, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "RANCH DOLI", "lon": -15.17, "lat": 14.75, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "SAGATA-DJOLOFF", "lon": -15.55, "lat": 15.22, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "THIARGNY", "lon": -15.28, "lat": 15.18, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "TESSEKERRE BISNABE", "lon": -15.05, "lat": 14.85, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "TOUBA BOUSTANE", "lon": -15.67, "lat": 15.1, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "TOUBA GAYENNE", "lon": -15.13, "lat": 15.42, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "WISS-WISS", "lon": -15.25, "lat": 15.27, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "YANG-YANG", "lon": -15.33, "lat": 15.58, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "THIEL", "lon": -15.05, "lat": 14.93, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "THIlLEU", "lon": -14.87, "lat": 15.62, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "LYCEE ALBOURY", "lon": -15.07, "lat": 15.23, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MATAM", "lon": -13.25, "lat": 15.64, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "HAMADY-OUNARE", "lon": -13.02, "lat": 15.33, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "BOKI-DIAVE", "lon": -13.48, "lat": 15.88, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "DENDOUDJI", "lon": -13.53, "lat": 15.38, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "DEMBANKANE", "lon": -12.7, "lat": 15.08, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "GANGUEL-SOULE", "lon": -13.58, "lat": 15.63, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "GUIDJILOGNE", "lon": -13.33, "lat": 15.93, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KANEL", "lon": -13.17, "lat": 15.48, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "KOBILO", "lon": -13.52, "lat": 15.92, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MOGOTAFSIR-BALA", "lon": -13.38, "lat": 15.65, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "THILOGNE", "lon": -13.58, "lat": 15.95, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "OGO", "lon": -13.28, "lat": 15.55, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "OREFONDE", "lon": -13.72, "lat": 16.03, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "OUROSSOGUI", "lon": -13.32, "lat": 15.6, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "SEMME", "lon": -12.93, "lat": 15.18, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "SINTHIOU-BABAMBE", "lon": -13.12, "lat": 15.37, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "DABIA", "lon": -13.49, "lat": 15.96, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NDIAFANE", "lon": -13.25, "lat": 15.66, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "BOW", "lon": -13.49, "lat": 14.92, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "SINTHIOU-GARBA", "lon": -13.27, "lat": 15.5, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "WAOUNDE", "lon": -12.87, "lat": 15.25, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "NDOULOUMADJI-FOUNEBE", "lon": -13.42, "lat": 15.82, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MBELONE", "lon": -13.77, "lat": 15.92, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE NORD", "feuille": "Nord", "station": "MALANDOU", "lon": -13.55, "lat": 15.18, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KOUNGHEUL", "lon": -14.79, "lat": 14.0, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "IDA-MOURIDE", "lon": -14.64, "lat": 14.0, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "RIBOT-ESCALE", "lon": -14.7, "lat": 14.4, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MISSIRAH-WADENE", "lon": -15.09, "lat": 14.0, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "FASS-TCHECKENE", "lon": -14.77, "lat": 13.89, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "LOUR-ESCALE", "lon": -14.65, "lat": 14.17, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "GUAINTH-PATHE", "lon": -14.94, "lat": 14.37, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "SALY-ESCALE", "lon": -14.94, "lat": 13.85, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MAKA-YOPP", "lon": -14.96, "lat": 14.07, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KAFFRINE", "lon": -15.46, "lat": 14.13, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MBIRKILANE", "lon": -15.73, "lat": 14.13, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MABO", "lon": -15.67, "lat": 13.94, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIOKOUL-MBELBOUCK", "lon": -15.23, "lat": 13.96, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "BOULEL", "lon": -15.6, "lat": 14.29, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KATHIOTE", "lon": -15.4, "lat": 13.97, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KAHI", "lon": -15.53, "lat": 14.15, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGANDA", "lon": -15.4, "lat": 13.86, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIAMAGADIO", "lon": -15.4, "lat": 13.8, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MEDINATOUL-SALAM", "lon": -15.21, "lat": 13.83, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MALEM-HODDAR", "lon": -15.23, "lat": 14.1, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIOBENE-SAMBALAMA", "lon": -15.15, "lat": 14.28, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIOUM-NGUAINTH", "lon": -15.2, "lat": 14.39, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DAROU-MINAM2", "lon": -15.3, "lat": 14.54, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KHELCOM", "lon": -15.44, "lat": 14.64, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIANKE-SOUF", "lon": -15.3, "lat": 14.23, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "SAGNA", "lon": -15.36, "lat": 14.09, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KEUR S DIABEL", "lon": -14.83, "lat": 13.96, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TAIF TCHIEKENE", "lon": -14.7, "lat": 14.54, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TOUBA MBELLA", "lon": -15.71, "lat": 14.26, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TOUBA MOURID", "lon": -15.42, "lat": 14.03, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIAMAL", "lon": -15.77, "lat": 14.1, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIOGNICK", "lon": -15.63, "lat": 14.09, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KEUR MBOUCKY", "lon": -15.81, "lat": 14.15, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "SEGRE GATTA", "lon": -15.73, "lat": 14.0, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MBEULEUP", "lon": -15.57, "lat": 13.97, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "YAMONG", "lon": -14.92, "lat": 13.96, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KOUMBIDIA PEULH", "lon": -15.0, "lat": 13.9, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "PIRE NANGO", "lon": -14.64, "lat": 14.1, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIAPTO PEULH", "lon": -14.84, "lat": 13.83, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIMISKHA", "lon": -15.06, "lat": 13.86, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DAGA BIRAME", "lon": -15.57, "lat": 14.98, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGOUYE", "lon": -14.8, "lat": 14.07, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "GNIBY", "lon": -15.6, "lat": 14.41, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DAROU WOLOF", "lon": -14.77, "lat": 13.99, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NIORO-DU-RIP", "lon": -15.78, "lat": 13.73, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NIORO AGRI", "lon": -15.68, "lat": 13.72, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DABALI", "lon": -15.68, "lat": 13.74, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DAROU SALAM", "lon": -15.95, "lat": 13.84, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "GAINTHE KAYE", "lon": -15.95, "lat": 13.82, "pluie_mm": 1.0, "pluie_orig": "1"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KAYMOR", "lon": -15.58, "lat": 13.77, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KEUR-MABA DIAKHOUBA", "lon": -15.97, "lat": 13.65, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KEUR-MADIABEL", "lon": -16.06, "lat": 13.85, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MEDINA-SABAKH", "lon": -15.59, "lat": 13.6, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGAYENE SABAKH", "lon": -15.49, "lat": 13.68, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "PAOSKOTO", "lon": -15.75, "lat": 13.77, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "POROKHANE", "lon": -15.84, "lat": 13.69, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "SABOYA", "lon": -16.08, "lat": 13.62, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TAIBA-NIASSENE", "lon": -15.78, "lat": 13.74, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "WACK-NGOUNA", "lon": -16.07, "lat": 13.75, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "SANTHIE THIAME", "lon": -16.01, "lat": 14.11, "pluie_mm": 0.5, "pluie_orig": "0.5"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KAOLACK", "lon": -16.1, "lat": 14.1, "pluie_mm": 0.6, "pluie_orig": "0.59999999999999998"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDOFFANE", "lon": -15.9, "lat": 13.9, "pluie_mm": 1.5, "pluie_orig": "1.5"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIEDIENG", "lon": -16.2, "lat": 13.9, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIEFATTE", "lon": -16.2, "lat": 14.1, "pluie_mm": 6.3, "pluie_orig": "6.2999999999999998"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "LATMINGUE", "lon": -15.9, "lat": 14.1, "pluie_mm": 4.0, "pluie_orig": "4"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KEUR-SOCE", "lon": -16.1, "lat": 14.0, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "THIARE", "lon": -15.8, "lat": 13.9, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIEBEL", "lon": -16.2, "lat": 14.4, "pluie_mm": 12.2, "pluie_orig": "12.199999999999999"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "GUINGUINEO", "lon": -16.0, "lat": 14.3, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGUELOU", "lon": -16.1, "lat": 14.2, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MBOSS", "lon": -15.8, "lat": 14.4, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "OUROUR", "lon": -16.0, "lat": 14.3, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "GAGNICK", "lon": -16.0, "lat": 14.3, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGATHIE-NAOUNDE", "lon": -15.9, "lat": 14.1, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KEUR-MBOUCKY", "lon": -15.81, "lat": 14.15, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KAOLACK-AGRI", "lon": -16.1, "lat": 14.2, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "GANDIAYE", "lon": -16.3, "lat": 14.2, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DJOLY", "lon": -16.19, "lat": 14.0, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGAMBIE", "lon": -15.81, "lat": 13.9, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "FATICK", "lon": -16.4, "lat": 14.32, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "BASSOUL", "lon": -16.62, "lat": 13.83, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "COLOBANE", "lon": -15.7, "lat": 14.64, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIAKHAO", "lon": -16.28, "lat": 14.46, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIOFFIOR", "lon": -16.67, "lat": 14.18, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIAOULE", "lon": -16.23, "lat": 14.36, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIOSSONG", "lon": -16.73, "lat": 14.18, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DJILOR SALOUM", "lon": -16.33, "lat": 14.05, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DJILOR SINE", "lon": -16.69, "lat": 14.07, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "FIMELA", "lon": -16.66, "lat": 14.13, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "FOUNDIOUGNE", "lon": -16.47, "lat": 14.12, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "GOSSAS", "lon": -16.08, "lat": 14.49, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MBAR", "lon": -15.77, "lat": 14.54, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MBELLACADIAO", "lon": -16.29, "lat": 14.34, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIENE LAGANE", "lon": -15.96, "lat": 14.51, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIOB", "lon": -16.26, "lat": 14.54, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDJIRNDA", "lon": -16.63, "lat": 13.98, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NOUNDOUR", "lon": -16.3, "lat": 14.11, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NIAKHAR", "lon": -16.39, "lat": 14.48, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NIODIOR", "lon": -16.71, "lat": 13.84, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "OUADIOUR", "lon": -16.06, "lat": 14.43, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "PALMARIN", "lon": -16.77, "lat": 14.03, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "PASSY", "lon": -16.26, "lat": 13.98, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "SOKONE", "lon": -16.37, "lat": 13.87, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TOUBACOUTA", "lon": -16.47, "lat": 13.78, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NIORO ALASSANE TALL", "lon": -16.34, "lat": 13.77, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KEUR SALOUM DIANE", "lon": -16.34, "lat": 13.75, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KEUR SAMBA GUEYE", "lon": -16.46, "lat": 13.89, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TATTAGUINE", "lon": -16.6, "lat": 14.42, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "PATAR LIA", "lon": -16.18, "lat": 14.49, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "PATAR SINE", "lon": -16.38, "lat": 14.56, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "BAMBEY METEO", "lon": -16.47, "lat": 14.7, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "BAMBEY-Agri", "lon": -16.49, "lat": 14.71, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "BABA GARAGE", "lon": -16.5, "lat": 14.96, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "LAMBAYE", "lon": -16.51, "lat": 14.84, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGOYE", "lon": -16.56, "lat": 14.62, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDOLNDOL", "lon": -16.61, "lat": 14.66, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "REFANE", "lon": -16.61, "lat": 14.79, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KEUR SAMBA KANE", "lon": -16.62, "lat": 14.91, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDEREPPE", "lon": -16.53, "lat": 14.77, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "THILMAKHA (THIES)", "lon": -16.15, "lat": 15.2, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KOURTY", "lon": -16.52, "lat": 14.41, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "GAWANE", "lon": -16.4, "lat": 14.68, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MBOUR", "lon": -16.97, "lat": 14.42, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIASS", "lon": -17.09, "lat": 14.64, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGUENIENE", "lon": -16.76, "lat": 14.27, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "JOAL-FADHIOUTH", "lon": -16.85, "lat": 14.18, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KIRENE-CDS", "lon": -17.07, "lat": 14.67, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGUEKHOKH", "lon": -17.0, "lat": 14.51, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIAGANIAO", "lon": -16.72, "lat": 14.53, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "POPENGUINE", "lon": -17.13, "lat": 14.55, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "SANDIARA", "lon": -16.79, "lat": 14.43, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TCHICKY", "lon": -17.03, "lat": 14.61, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "THIADIAYE", "lon": -16.7, "lat": 14.42, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "FISSEL", "lon": -16.61, "lat": 14.54, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "THIES", "lon": -16.95, "lat": 14.8, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "CAYAR", "lon": -17.13, "lat": 14.91, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "FANDENE", "lon": -16.85, "lat": 14.8, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KELLE", "lon": -16.58, "lat": 15.18, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MBOUCKY", "lon": 0.0, "lat": 0.0, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KHOMBOLE", "lon": -16.68, "lat": 14.75, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KOUL", "lon": -16.62, "lat": 15.06, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MBAYENNE", "lon": -16.3, "lat": 15.16, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MBORRO", "lon": -16.88, "lat": 15.13, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MECKHE", "lon": -16.63, "lat": 15.12, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MEOUANE", "lon": -16.75, "lat": 15.06, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MERINA-DAKHAR", "lon": -16.46, "lat": 15.05, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MONT-ROLLAND", "lon": -16.98, "lat": 14.92, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIASSANE", "lon": -16.83, "lat": 14.91, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "PAMBALL", "lon": -16.88, "lat": 14.97, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIEFOUNE-PARBA", "lon": -16.65, "lat": 14.79, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "THILMAKHA", "lon": -16.25, "lat": 15.04, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGOLFAGNING", "lon": -16.95, "lat": 14.63, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DAROU-KHOUDOSS", "lon": -16.86, "lat": 15.13, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIOGO", "lon": -16.82, "lat": 15.3, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "PEKESSE", "lon": -16.42, "lat": 15.1, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "PIRE-GOUREYE", "lon": -16.74, "lat": 15.01, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TAIBA-NDIAYE", "lon": -16.87, "lat": 15.03, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NIAKHENE", "lon": -16.33, "lat": 15.06, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "POUT", "lon": -17.09, "lat": 14.75, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "SANGHE", "lon": -16.96, "lat": 14.7, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TASSETE", "lon": -16.87, "lat": 14.61, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NOTTO-GOUYE-DIAMA", "lon": -17.01, "lat": 14.99, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NOTTO-DIOBASS", "lon": -16.87, "lat": 14.7, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "THIENABA", "lon": -16.8, "lat": 14.77, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TOUBA-TOUL", "lon": -16.67, "lat": 14.8, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TIVAOUANE", "lon": -16.82, "lat": 14.95, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGOUNDIANE", "lon": -16.74, "lat": 14.72, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "SINE-MOUSSA-ABDOU", "lon": -16.74, "lat": 15.18, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DJENDER GUEDJ", "lon": -17.08, "lat": 14.87, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KEUR-MOUSSA", "lon": -17.12, "lat": 14.77, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIOURBEL", "lon": -16.23, "lat": 14.65, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDINDY", "lon": -16.22, "lat": 14.92, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDOULO", "lon": -16.11, "lat": 14.73, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TOCKY GARE", "lon": -16.12, "lat": 14.58, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DANKH SENE", "lon": -16.14, "lat": 14.84, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MBACKE", "lon": -15.9, "lat": 14.79, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDAME", "lon": -15.9, "lat": 14.82, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KAEL", "lon": -15.9, "lat": 14.72, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TAIF", "lon": -15.65, "lat": 14.79, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "SADIO", "lon": -15.5, "lat": 14.78, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DAROU SALAM TYP", "lon": -15.85, "lat": 14.67, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGOHE", "lon": -16.42, "lat": 14.62, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDAMATOU", "lon": -15.83, "lat": 14.84, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "TOUBA KHELCOM", "lon": -15.51, "lat": 14.57, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NDIOUROUL", "lon": -15.77, "lat": 14.78, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DAKAR-YOFF", "lon": -17.5, "lat": 14.74, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MBAO-KM19", "lon": -17.33, "lat": 14.75, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DAKAR-BEL-AIR", "lon": -17.42, "lat": 14.7, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DALIFORT", "lon": -17.42, "lat": 14.74, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "BAMBYLOR", "lon": -17.18, "lat": 14.8, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DIAMNIADIO", "lon": -17.18, "lat": 14.72, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "GUEDIAWAYE", "lon": -17.39, "lat": 14.78, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "DAKAR-GOREE", "lon": -17.4, "lat": 14.67, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "SEBIKOTANE", "lon": -17.13, "lat": 14.74, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "MALIKA", "lon": -17.35, "lat": 14.78, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "YENNE-GUEDJI", "lon": -17.17, "lat": 14.64, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "NGOR", "lon": -17.52, "lat": 14.74, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "KEUR MASSAR", "lon": -17.31, "lat": 14.78, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE CENTRE", "feuille": "Centre", "station": "RUFISQUE", "lon": -17.26, "lat": 14.74, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "VELINGARA-CASA", "lon": -14.1, "lat": 13.15, "pluie_mm": 5.8, "pluie_orig": "5.7999999999999998"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BONCONTO", "lon": -13.93, "lat": 13.02, "pluie_mm": 9.1, "pluie_orig": "9.0999999999999996"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DIAOBE KABENDOU", "lon": -14.16, "lat": 12.91, "pluie_mm": 7.0, "pluie_orig": "7"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "KOUNKANE", "lon": -14.08, "lat": 12.92, "pluie_mm": 7.6, "pluie_orig": "7.5999999999999996"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "PAKOUR", "lon": -13.96, "lat": 12.8, "pluie_mm": 9.0, "pluie_orig": "9"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "SINTHIAN-KOUNDARA", "lon": -13.9, "lat": 13.3, "pluie_mm": 6.0, "pluie_orig": "6"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "MANDA DOUANE", "lon": -13.83, "lat": 13.33, "pluie_mm": 5.0, "pluie_orig": "5"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "MEDINA-MARY", "lon": -14.29, "lat": 13.17, "pluie_mm": 2.0, "pluie_orig": "2"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "MEDINA-GOUNASS", "lon": -13.8, "lat": 13.1, "pluie_mm": 7.0, "pluie_orig": "7"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "ANAMBE", "lon": -14.15, "lat": 12.95, "pluie_mm": 8.1, "pluie_orig": "8.0999999999999996"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "NEMANTABA", "lon": -14.1, "lat": 13.2, "pluie_mm": 15.0, "pluie_orig": "15"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "LINKERING", "lon": -13.74, "lat": 12.95, "pluie_mm": 13.0, "pluie_orig": "13"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "OUASSADOU", "lon": -14.15, "lat": 12.74, "pluie_mm": 7.0, "pluie_orig": "7"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "KANDIA", "lon": -14.22, "lat": 13.1, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "PAROUMBA", "lon": -13.8, "lat": 12.8, "pluie_mm": 26.5, "pluie_orig": "26.5"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "SARE-COLI-SALLE", "lon": -14.1, "lat": 13.1, "pluie_mm": 30.0, "pluie_orig": "30"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DIALADIAN", "lon": -13.74, "lat": 12.7, "pluie_mm": 28.0, "pluie_orig": "28"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DOUBIROU", "lon": -14.23, "lat": 13.19, "pluie_mm": 6.4, "pluie_orig": "6.4000000000000004"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "ZIGUINCHOR", "lon": -16.27, "lat": 12.55, "pluie_mm": 7.9, "pluie_orig": "7.9000000000000004"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "NIAGUISS", "lon": -16.15, "lat": 12.57, "pluie_mm": 10.1, "pluie_orig": "10.1"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "MPACK", "lon": -16.24, "lat": 12.44, "pluie_mm": 3.5, "pluie_orig": "3.5"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "NIASSYA", "lon": -16.38, "lat": 12.44, "pluie_mm": 6.0, "pluie_orig": "6"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "ENAMPORES", "lon": -16.44, "lat": 12.47, "pluie_mm": 12.0, "pluie_orig": "12"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "ADEANE", "lon": -16.02, "lat": 12.63, "pluie_mm": 0.1, "pluie_orig": "TR"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BIGNONA", "lon": -16.28, "lat": 12.65, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "TENGHORY", "lon": -16.22, "lat": 12.77, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "SINDIAN", "lon": -16.18, "lat": 12.96, "pluie_mm": 0.1, "pluie_orig": "TR"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DIOULOULOU", "lon": -16.57, "lat": 13.04, "pluie_mm": 11.8, "pluie_orig": "11.800000000000001"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "TENDOUCK", "lon": -16.46, "lat": 12.72, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "THIONCK-ESSYL", "lon": -16.49, "lat": 12.78, "pluie_mm": 1.0, "pluie_orig": "1"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BASSIRE", "lon": -16.45, "lat": 12.85, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "KAGNOBON", "lon": -16.42, "lat": 12.84, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "THIOBON", "lon": -16.54, "lat": 12.85, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DIOGUE", "lon": -16.73, "lat": 12.56, "pluie_mm": 10.8, "pluie_orig": "10.800000000000001"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DJIFANGHOR", "lon": -16.21, "lat": 12.57, "pluie_mm": 10.0, "pluie_orig": "10"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "TOBOR", "lon": -16.26, "lat": 12.69, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BALINGHOR", "lon": -16.35, "lat": 12.77, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "KAFOUNTINE", "lon": -16.67, "lat": 13.1, "pluie_mm": 3.5, "pluie_orig": "3.5"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BOUTEGOL", "lon": -16.44, "lat": 12.7, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "NIAMOUNE", "lon": -16.3, "lat": 12.74, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "OULAMPANE", "lon": -15.9, "lat": 12.95, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "MACOUDA", "lon": -16.67, "lat": 13.14, "pluie_mm": 0.6, "pluie_orig": "0.59999999999999998"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "CAP-SKIRRING", "lon": -16.75, "lat": 12.4, "pluie_mm": 24.4, "pluie_orig": "24.399999999999999"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "CABROUSSE", "lon": -16.71, "lat": 12.35, "pluie_mm": 17.0, "pluie_orig": "17"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DIEMBERING", "lon": -16.77, "lat": 12.47, "pluie_mm": 18.2, "pluie_orig": "18.199999999999999"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "LOUDIA-OUOLOFF", "lon": -16.6, "lat": 12.5, "pluie_mm": 5.5, "pluie_orig": "5.5"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "OUSSOUYE", "lon": -16.53, "lat": 12.48, "pluie_mm": 8.5, "pluie_orig": "8.5"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "MLOMP", "lon": -16.58, "lat": 12.55, "pluie_mm": 11.0, "pluie_orig": "11"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "KOLDA METEO", "lon": -14.93, "lat": 12.88, "pluie_mm": 1.7, "pluie_orig": "1.7"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BADION", "lon": -14.35, "lat": 13.08, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BAMBALY", "lon": -15.66, "lat": 12.61, "pluie_mm": 8.5, "pluie_orig": "8.5"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BIGNARABE", "lon": -14.88, "lat": 12.93, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BOGHAL", "lon": -15.58, "lat": 13.24, "pluie_mm": 0.1, "pluie_orig": "TR"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BONA", "lon": -15.84, "lat": 12.96, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BOUNKILING", "lon": -15.7, "lat": 13.04, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BOUROUCO", "lon": -15.23, "lat": 13.27, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DABO", "lon": -14.48, "lat": 12.88, "pluie_mm": 2.5, "pluie_orig": "2.5"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DIANAH- MALARY", "lon": -15.28, "lat": 12.85, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DIAROUME", "lon": -15.62, "lat": 12.98, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DIATTACOUNDA", "lon": -15.68, "lat": 12.57, "pluie_mm": 5.5, "pluie_orig": "5.5"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DIENDE", "lon": -15.56, "lat": 12.79, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DIOULACOLON", "lon": -14.87, "lat": 12.82, "pluie_mm": 2.0, "pluie_orig": "2"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DJIBANAR", "lon": -15.81, "lat": 12.55, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "DJIREDJI", "lon": -15.77, "lat": 12.62, "pluie_mm": 6.0, "pluie_orig": "6"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "FAFACOUROU", "lon": -14.56, "lat": 13.06, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "GOUDOMP", "lon": -15.88, "lat": 12.57, "pluie_mm": 0.5, "pluie_orig": "0.5"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "KARANTAMBA", "lon": -15.5, "lat": 13.06, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "KOULINTO", "lon": -14.81, "lat": 13.03, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "MARSSASSOUM", "lon": -15.99, "lat": 12.83, "pluie_mm": 17.0, "pluie_orig": "17"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "MEDINA-MANDA", "lon": -15.2, "lat": 13.36, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "MEDINA YORO FOULA", "lon": -14.72, "lat": 13.29, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "NDORNA", "lon": -15.03, "lat": 13.16, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "NIAMING", "lon": -14.76, "lat": 13.31, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "PATA", "lon": -14.95, "lat": 13.44, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "SAMINE", "lon": -15.63, "lat": 12.49, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "SANTHIE CHEIKH", "lon": -15.06, "lat": 13.3, "pluie_mm": 1.0, "pluie_orig": "1"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "SARE BIDJI", "lon": -15.01, "lat": 12.92, "pluie_mm": 20.7, "pluie_orig": "20.699999999999999"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "SARE YOBA DIEGA", "lon": -15.1, "lat": 12.76, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "Sedhiou-AGRIC", "lon": -15.55, "lat": 12.78, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "Sedhiou-VILLE", "lon": -15.56, "lat": 12.7, "pluie_mm": 12.0, "pluie_orig": "12"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "SIMBANDI BALANTE", "lon": -15.78, "lat": 12.56, "pluie_mm": 7.2, "pluie_orig": "7.2000000000000002"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "SALIKEGNE", "lon": -14.74, "lat": 12.69, "pluie_mm": 9.0, "pluie_orig": "9"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "TANAFF", "lon": -15.43, "lat": 12.65, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "KOLIBANTANG", "lon": -15.21, "lat": 12.8, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "KOLDA AGRI", "lon": -14.94, "lat": 12.89, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE SUD-OUEST", "feuille": "Sud-Ouest", "station": "BAGADADJI", "lon": -14.65, "lat": 12.85, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "GOUDIRY", "lon": -12.71, "lat": 14.18, "pluie_mm": 0.1, "pluie_orig": "TR"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "BOYNGHEUL-BAMBA", "lon": -12.94, "lat": 14.09, "pluie_mm": 0.1, "pluie_orig": "TR"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "DIANKE-MAKHA", "lon": -12.66, "lat": 13.68, "pluie_mm": 2.0, "pluie_orig": "2"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KOULOR", "lon": -13.41, "lat": 13.98, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KOTHIARY-NAOUNDE", "lon": -13.46, "lat": 13.89, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "GOUMBAYEL", "lon": -13.18, "lat": 13.69, "pluie_mm": 7.0, "pluie_orig": "7"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KOUSSAN", "lon": -12.45, "lat": 14.13, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "BOUTOUCOU-FARA", "lon": -12.49, "lat": 13.4, "pluie_mm": 50.0, "pluie_orig": "50"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KOAR", "lon": -13.28, "lat": 13.8, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KOMOTY", "lon": -12.92, "lat": 13.66, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "DOUGUEY", "lon": -12.81, "lat": 13.99, "pluie_mm": 5.5, "pluie_orig": "5.5"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "BELLY WAMETAKE", "lon": -12.57, "lat": 13.36, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "SINTHIOU-MAMADOU-BOUBOU", "lon": -12.8, "lat": 14.27, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "BANI-ISRAEL", "lon": -12.88, "lat": 13.83, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "BALA", "lon": -13.17, "lat": 14.02, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "BAKEL", "lon": -12.28, "lat": 14.54, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "BALLOU", "lon": -12.23, "lat": 14.73, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "DIAWARA", "lon": -12.53, "lat": 15.02, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "GABOU", "lon": -12.4, "lat": 14.72, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "GAMBIE-DIAOUBE", "lon": -12.27, "lat": 14.29, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KIDIRA", "lon": -12.22, "lat": 14.45, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "MOUDERY", "lon": -12.58, "lat": 15.05, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "SINTHIOU-FISSA", "lon": -12.37, "lat": 14.38, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "BELE", "lon": -12.28, "lat": 14.4, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KENIABA", "lon": -12.08, "lat": 14.03, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KEDOUGOU Station", "lon": -12.2, "lat": 12.57, "pluie_mm": 31.9, "pluie_orig": "31.899999999999999"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KEDOUGOU Aagri", "lon": 0.0, "lat": 0.0, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "BANDAFASSY", "lon": -12.3, "lat": 12.53, "pluie_mm": 8.5, "pluie_orig": "8.5"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "SALEMATA", "lon": -12.63, "lat": 12.7, "pluie_mm": 45.0, "pluie_orig": "45"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "DAKATELY", "lon": -12.61, "lat": 12.49, "pluie_mm": 26.7, "pluie_orig": "26.699999999999999"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "LAMINIA", "lon": -12.11, "lat": 12.64, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "FONGOLIMBY", "lon": -12.02, "lat": 12.42, "pluie_mm": 40.8, "pluie_orig": "40.799999999999997"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "SARAYA", "lon": -11.79, "lat": 12.79, "pluie_mm": 40.2, "pluie_orig": "40.200000000000003"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "SABADOLA", "lon": -12.11, "lat": 13.16, "pluie_mm": 48.0, "pluie_orig": "48"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "BRANSAN", "lon": -12.1, "lat": 13.26, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KHOSSANTO", "lon": -11.97, "lat": 13.13, "pluie_mm": 37.9, "pluie_orig": "37.899999999999999"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "BAGNOMBA", "lon": -12.39, "lat": 12.72, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "MAKO", "lon": -12.35, "lat": 12.84, "pluie_mm": 4.0, "pluie_orig": "4"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "DINDIFELO", "lon": -12.33, "lat": 12.37, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "MISSIRAH-SIRIMANA", "lon": -11.7, "lat": 13.09, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "TAMBACOUNDA-AERO", "lon": -13.68, "lat": 13.77, "pluie_mm": 3.3, "pluie_orig": "3.2999999999999998"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "TAMBACOUNDA-VILLE", "lon": -13.67, "lat": 13.77, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "MAKA-COULIBANTANG", "lon": -14.3, "lat": 13.67, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "MISSIRAH", "lon": -13.52, "lat": 13.55, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KOUMPENTOUM", "lon": -14.55, "lat": 13.99, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KOUSSANAR", "lon": -14.09, "lat": 13.87, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "SINTHIOU-MALEM", "lon": -13.94, "lat": 13.77, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "NETTEBOULOU", "lon": -13.78, "lat": 13.58, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "DIALAKOTO", "lon": -13.3, "lat": 13.32, "pluie_mm": 0.0, "pluie_orig": "0"}, {"zone": "ZONE Sud-Est", "feuille": "Sud-est", "station": "KOUTHIABA", "lon": -14.45, "lat": 14.17, "pluie_mm": 0.0, "pluie_orig": "0"}];
 
-const UI_TEXT = {
-  fr: {
-    panelTitle: 'Échéance de prévision',
-    legendTitle: 'Légende',
-    legendNSW: '(aucun phénomène)',
-    echeancePrefix: 'Échéance : ',
-    editePrefix: 'Édité le : ',
-    country: 'Pays',
-    iso3: 'Code ISO3 :',
-    phenomeneDefaut: 'Phénomène',
-    seuil: 'Seuil :',
-    valeurSeuil: 'Valeur seuil :',
-    echeanceChamp: 'Échéance :',
-    validite: 'Validité :',
-    commentaire: 'Commentaire :',
-    alerteManquant: n => `⚠️ Le fichier carte_jour_${n}.js est introuvable ou n'a pas encore été créé.`,
-    dayLabel: n => 'J' + n,
-    dayPrefix: 'J',
-    logoAlt: 'Logo ANACIM',
-    locale: 'fr-FR',
-  },
-  en: {
-    panelTitle: 'Forecast lead time',
-    legendTitle: 'Legend',
-    legendNSW: '(no phenomenon)',
-    echeancePrefix: 'Lead time: ',
-    editePrefix: 'Issued: ',
-    country: 'Country',
-    iso3: 'ISO3 code:',
-    phenomeneDefaut: 'Phenomenon',
-    seuil: 'Threshold:',
-    valeurSeuil: 'Threshold value:',
-    echeanceChamp: 'Lead time:',
-    validite: 'Valid:',
-    commentaire: 'Comment:',
-    alerteManquant: n => `⚠️ File carte_jour_${n}.js not found or not yet generated.`,
-    dayLabel: n => 'D' + n,
-    dayPrefix: 'D',
-    logoAlt: 'ANACIM logo',
-    locale: 'en-GB',
+// Paliers de couleur/rayon (doivent rester coherents avec la legende ci-dessus)
+const paliers = [{"min": 0.1, "max": 5, "couleur": "#cfe2f5", "libelle": "0.1 - 5 mm", "rayon": 5}, {"min": 5, "max": 10, "couleur": "#7fb3e0", "libelle": "5 - 10 mm", "rayon": 7}, {"min": 10, "max": 25, "couleur": "#1a4fa0", "libelle": "10 - 25 mm", "rayon": 9}, {"min": 25, "max": 50, "couleur": "#2e8b3d", "libelle": "25 - 50 mm", "rayon": 12}, {"min": 50, "max": 100, "couleur": "#f0902d", "libelle": "50 - 100 mm", "rayon": 16}, {"min": 100, "max": null, "couleur": "#c0392b", "libelle": "> 100 mm", "rayon": 20}];
+
+function stylePourValeur(valeur) {
+  for (const p of paliers) {
+    if (valeur >= p.min && (p.max === null || valeur < p.max)) return p;
   }
-};
-
-// Libellé complet du phénomène (ex: "G" -> "Vent" / "Wind"), utilisé pour
-// reconstruire "G: Vent" / "G: Wind" dans l'infobulle.
-const PHEN_LABELS = {
-  G:  { fr: 'Vent',        en: 'Wind' },
-  Hs: { fr: 'Houle',       en: 'Swell' },
-  RR: { fr: 'Pluie',       en: 'Rain' },
-  HR: { fr: 'Pluie',       en: 'Rain' },
-  T:  { fr: 'Température', en: 'Temperature' },
-};
-
-function phenCourt(phenomene) {
-  if (!phenomene) return '';
-  return String(phenomene).split(':')[0].trim();
+  return { couleur: "#999999", libelle: "Trace / 0 mm", rayon: 3 };
 }
 
-// "G: Vent" (FR, tel quel dans les données) -> "G: Wind" en anglais.
-function traduirePhenomene(phenomene, lang) {
-  if (lang === 'fr') return phenomene || UI_TEXT.fr.phenomeneDefaut;
-  const court = phenCourt(phenomene);
-  const lbl = PHEN_LABELS[court];
-  if (!lbl) return phenomene || UI_TEXT.en.phenomeneDefaut;
-  return court + ': ' + lbl.en;
-}
+const map = L.map('map', { zoomControl: true }).setView([14.3239, -15.2678], 7);
 
-// Normalise un Seuil_code pour l'appariement avec la table de traduction
-// (les données contiennent des variantes : "FF" vs "G", casse différente,
-// "24h" parfois écrit sans le "h" final, "HR" vs "RR"...).
-function normaliserSeuilCode(code) {
-  if (!code) return '';
-  let c = String(code).toUpperCase().replace(/FF/g, 'G').replace(/\s+/g, '');
-  c = c.replace(/^HR/, 'RR');
-  c = c.replace(/^(RR)>(\d+)MM\/(\d+)$/, '$1>$2MM/$3H'); // "RR>50MM/24" -> "RR>50MM/24H"
-  return c;
-}
-
-// Formulations anglaises standardisées par seuil (style professionnel,
-// indépendantes du texte libre "Commentair" saisi en français dans les
-// données sources).
-const COMMENTAIRES_EN = {
-  'G>40KM/H':     'Strong wind zone: exercise caution, particularly for navigation.',
-  'G>60KM/H':     'Very strong wind zone: high risk, avoid navigation.',
-  'HS>2M':        'High swell zone: exercise caution, particularly for navigation.',
-  'HS>3M':        'Dangerous swell zone: high risk, avoid navigation.',
-  'RR>50MM/24H':  'Heavy rainfall zone (>50 mm/24h).',
-  'RR>50MM/12H':  'Heavy rainfall zone (>50 mm/12h).',
-  'RR>100MM/24H': 'Very heavy rainfall zone (>100 mm/24h): high flood risk.',
-  'T>40°C':       'High temperature zone (>40°C).',
-  'T>45°C':       'Extreme temperature zone (>45°C): high risk.',
-  'T<10°C':       'Cool temperature zone (<10°C).',
-  'T<8°C':        'Cold temperature zone (<8°C).',
-};
-
-// En français : on affiche tel quel le commentaire de la donnée source.
-// En anglais : on utilise la formulation standardisée ci-dessus (par
-// phénomène/seuil) plutôt qu'une traduction littérale du texte libre, pour
-// garantir un rendu homogène et professionnel quel que soit le libellé
-// exact saisi côté prévisionniste. Repli générique si le seuil est inconnu.
-function traduireCommentaire(props, lang) {
-  if (lang === 'fr') return props.Commentair || '';
-  const cle = normaliserSeuilCode(props.Seuil_code);
-  if (COMMENTAIRES_EN[cle]) return COMMENTAIRES_EN[cle];
-  return traduirePhenomene(props.Phenomene, 'en') + ' zone — threshold: ' + (props.Seuil_code || '-');
-}
-
-function formatDateLongue(date, lang) {
-  return date.toLocaleDateString(UI_TEXT[lang].locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    .replace(/^./, c => c.toUpperCase());
-}
-
-function calculerDateEditionTexte(lang) {
-  if (typeof DATE_EDITION !== 'undefined' && DATE_EDITION) {
-    const d = (DATE_EDITION instanceof Date) ? DATE_EDITION : new Date(DATE_EDITION);
-    if (!isNaN(d)) return formatDateLongue(d, lang);
-  }
-  return formatDateLongue(new Date(), lang);
-}
-
-// Formate une date ISO ("2026-08-31") en date courte lisible ("31/08/2026").
-// Renvoie la valeur d'origine si elle n'est pas reconnue comme une date.
-function formatDateCourte(valeur, lang) {
-  if (!valeur) return null;
-  const d = new Date(valeur);
-  if (isNaN(d)) return valeur;
-  return d.toLocaleDateString(UI_TEXT[lang || currentLang].locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-// Les échéances SWFDP sont conventionnellement valides de 12h00 à 12h00
-// (TU). Cette heure fixe est ajoutée à l'affichage (elle n'est pas stockée
-// dans Date_début / Date_fin, qui ne contiennent qu'une date).
-// Heures de validité SWFDP : l'échéance J1/D1 démarre à 12h00 (heure
-// d'émission du bulletin) et se termine à 00h00 ; les échéances suivantes
-// (J2..J5 / D2..D5) sont valides de 00h00 à 00h00. Ces heures ne sont pas
-// stockées dans Date_début / Date_fin (qui ne contiennent qu'une date) :
-// elles sont déduites ici du numéro d'échéance.
-function heuresValidite(echeance) {
-  const numero = echeance ? parseInt(String(echeance).replace(/^[JD]/i, ''), 10) : null;
-  return (numero === 1) ? { debut: 12, fin: 0 } : { debut: 0, fin: 0 };
-}
-
-function formatHeureTexte(heure, lang) {
-  const hh = String(heure).padStart(2, '0');
-  return lang === 'en' ? `at ${hh}:00` : `à ${hh}h00`;
-}
-
-function formatDateAvecHeure(valeur, heure, lang) {
-  const dateCourte = formatDateCourte(valeur, lang);
-  if (!dateCourte) return null;
-  return dateCourte + ' ' + formatHeureTexte(heure, lang);
-}
-
-function recupererDonneesJour(n) {
-  const nomVariable = 'carte_jour_' + n;
-  if (typeof window[nomVariable] !== 'undefined') return window[nomVariable];
-  return null;
-}
-
-const map = L.map('map', { zoomControl: true }).setView([15.5, -5], 5);
-
-// NB : le serveur communautaire tile.openstreetmap.org n'est pas destiné à un
-// usage opérationnel/institutionnel (il bloque désormais les applis qui ne
-// respectent pas sa politique d'usage : ouverture en local, absence de
-// User-Agent applicatif, etc. -> tuiles "Access blocked").
-// Fond de carte : imagerie satellite Esri World Imagery (gratuit, sans clé
-// API, fonctionne aussi bien en local (file://) qu'une fois déployé).
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-  attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-  maxZoom: 19
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 15
 }).addTo(map);
 
-// Panes dédiées : le fond de carte (pays) reste toujours sous les polygones de vigilance
-map.createPane('paneFondPays');
-map.getPane('paneFondPays').style.zIndex = 350;
-map.createPane('paneVigilance');
-map.getPane('paneVigilance').style.zIndex = 450;
-
-// Détection tactile : sur mobile/tablette, le survol n'existe pas -> on bascule sur le tap
-const estTactile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-
-let coucheActuelle = null;
-let jourActuel = 1;
-
-// ============================================================
-// Bulle d'info flottante (suit le curseur, comme meteo_senegal_responsive.html)
-// ============================================================
 const infoDiv = document.getElementById('info-flottante');
+const estTactile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
 function positionnerInfo(x, y) {
   const mapEl = document.getElementById('map');
   const largeurCarte = mapEl.clientWidth;
   const hauteurCarte = mapEl.clientHeight;
-  const largeurInfo = infoDiv.offsetWidth || 240;
-  const hauteurInfo = infoDiv.offsetHeight || 120;
-
-  let posX = x + 15;
-  let posY = y - 15;
-
-  if (posX + largeurInfo > largeurCarte) posX = x - largeurInfo - 15;
-  if (posY < 0) posY = y + 15;
+  const largeurInfo = infoDiv.offsetWidth || 200;
+  const hauteurInfo = infoDiv.offsetHeight || 90;
+  let posX = x + 14;
+  let posY = y - 10;
+  if (posX + largeurInfo > largeurCarte) posX = x - largeurInfo - 14;
+  if (posY < 0) posY = y + 14;
   if (posY + hauteurInfo > hauteurCarte) posY = hauteurCarte - hauteurInfo - 10;
-
   infoDiv.style.left = posX + 'px';
   infoDiv.style.top = posY + 'px';
 }
 
-function afficherInfo(props) {
-  const t = UI_TEXT[currentLang];
-  const heures = heuresValidite(props.Echeance);
-  const dateDebut = formatDateAvecHeure(props.Date_début, heures.debut, currentLang);
-  const dateFin = formatDateAvecHeure(props.Date_fin, heures.fin, currentLang);
-  const periodeValidite = (dateDebut && dateFin) ? (dateDebut + ' --- ' + dateFin)
-    : (dateDebut || dateFin || '-');
-  const echeanceAffichee = props.Echeance ? t.dayPrefix + String(props.Echeance).replace(/^[JD]/i, '') : '-';
-  const commentaire = traduireCommentaire(props, currentLang);
-
+function afficherInfo(s) {
   infoDiv.style.display = 'block';
   infoDiv.innerHTML =
-    '<b class="titre">' + traduirePhenomene(props.Phenomene, currentLang) + '</b><br>' +
-    '<b>' + t.seuil + '</b> ' + (props.Seuil_code ?? '-') + '<br>' +
-    '<b>' + t.valeurSeuil + '</b> ' + (props.Seuil_val ?? '-') + ' ' + (props.Unite ?? '') + '<br>' +
-    '<b>' + t.echeanceChamp + '</b> ' + echeanceAffichee + '<br>' +
-    '<b>' + t.validite + '</b> ' + periodeValidite +
-    (commentaire ? '<br><b>' + t.commentaire + '</b> ' + commentaire : '');
+    '<b class="titre">' + s.station + '</b><br>' +
+    (s.feuille ? ('<b>Region :</b> ' + s.feuille + '<br>') : '') +
+    (s.zone ? ('<b>Zone :</b> ' + s.zone + '<br>') : '') +
+    '<b>Pluie 24h :</b> ' + s.pluie_mm.toLocaleString('fr-FR') + ' mm';
 }
-
-function masquerInfo() {
-  infoDiv.style.display = 'none';
-}
+function masquerInfo() { infoDiv.style.display = 'none'; }
 
 map.on('mousemove', function (e) {
-  if (!estTactile && infoDiv.style.display === 'block') {
-    positionnerInfo(e.containerPoint.x, e.containerPoint.y);
-  }
+  if (!estTactile && infoDiv.style.display === 'block') positionnerInfo(e.containerPoint.x, e.containerPoint.y);
 });
+map.on('click', function () { if (estTactile) masquerInfo(); });
 
-// ============================================================
-// Superposition : on fait remonter les PETITS polygones au-dessus
-// des grands, pour qu'ils restent visibles/cliquables même s'ils
-// sont entièrement recouverts par une zone plus large.
-// ============================================================
-function aireEmprise(layer) {
-  // Aire de l'emprise (bounding box), robuste face aux polygones imbriqués/fins.
-  try {
-    const b = layer.getBounds();
-    const dLat = b.getNorth() - b.getSouth();
-    const dLng = b.getEast() - b.getWest();
-    const aire = Math.abs(dLat * dLng);
-    return Number.isFinite(aire) ? aire : 0;
-  } catch (e) {
-    return 0;
-  }
-}
+const marqueurs = [];
 
-function mettreEnAvantLesPetits(coucheGeoJSON) {
-  const paires = [];
-  coucheGeoJSON.eachLayer(layer => {
-    if (layer.feature && layer.feature.geometry) {
-      paires.push({ layer, aire: aireEmprise(layer) });
-    }
-  });
-  paires.sort((a, b) => b.aire - a.aire);
-  paires.forEach(p => p.layer.bringToFront());
-}
+stations.forEach(function (s) {
+  const style = stylePourValeur(s.pluie_mm);
+  const marker = L.circleMarker([s.lat, s.lon], {
+    radius: style.rayon,
+    color: '#333',
+    weight: 1,
+    fillColor: style.couleur,
+    fillOpacity: 0.85
+  }).addTo(map);
 
-// ============================================================
-// Fond de carte — limites des pays (Afrique de l'Ouest), affiché une
-// seule fois, sous les polygones de vigilance, visible pour toutes
-// les échéances.
-// ============================================================
-function styleFondDeCarte() {
-  return { color: '#666666', weight: 2.5, fillColor: '#e8e4d8', fillOpacity: 0.35 };
-}
+  marker.bindTooltip(s.station, { direction: 'top', offset: [0, -style.rayon], sticky: false });
 
-function onEachPays(feature, layer) {
-  layer.on({
+  marker.on({
     mouseover: function (e) {
-      if (estTactile) return; // sur tactile, on gère uniquement via 'click' ci-dessous
-      infoDiv.style.display = 'block';
-      infoDiv.innerHTML =
-        '<b class="titre">' + (feature.properties.ADM0_NAME ?? UI_TEXT[currentLang].country) + '</b><br>' +
-        '<b>' + UI_TEXT[currentLang].iso3 + '</b> ' + (feature.properties.ISO3 ?? '-');
+      if (estTactile) return;
+      afficherInfo(s);
       positionnerInfo(e.containerPoint.x, e.containerPoint.y);
     },
     mouseout: function () { if (!estTactile) masquerInfo(); },
     click: function (e) {
-      if (!estTactile) return; // sur PC, le survol suffit
-      infoDiv.style.display = 'block';
-      infoDiv.innerHTML =
-        '<b class="titre">' + (feature.properties.ADM0_NAME ?? UI_TEXT[currentLang].country) + '</b><br>' +
-        '<b>' + UI_TEXT[currentLang].iso3 + '</b> ' + (feature.properties.ISO3 ?? '-');
+      if (!estTactile) return;
+      afficherInfo(s);
       positionnerInfo(e.containerPoint.x, e.containerPoint.y);
       L.DomEvent.stopPropagation(e);
     }
   });
-}
 
-if (typeof afrique_ouest !== 'undefined') {
-  L.geoJSON(afrique_ouest, { pane: 'paneFondPays', style: styleFondDeCarte, onEachFeature: onEachPays }).addTo(map);
-} else {
-  console.warn('afrique_ouest.js introuvable : fond de carte des pays non affiché.');
-}
-function stylePolygone(feature) {
-  return {
-    color: '#333333',
-    weight: 1,
-    fillColor: feature.properties.Couleur_ph || '#3388ff',
-    fillOpacity: 0.55
-  };
-}
-
-function onEachFeature(feature, layer) {
-  layer.on({
-    mouseover: function (e) {
-      if (estTactile) return; // sur tactile, on gère uniquement via 'click' ci-dessous
-      const l = e.target;
-      // IMPORTANT : ne PAS appeler l.bringToFront() ici. L'ordre d'empilement
-      // (petits polygones au-dessus des grands) est déjà fixé une fois pour
-      // toutes au chargement du jour (voir mettreEnAvantLesPetits). Le refaire
-      // à chaque survol replaçait le grand polygone (ex: T>40°C, Hs>2m)
-      // au-dessus du petit qu'il contient (ex: T>45°C, Hs>3m) dès qu'on le
-      // survolait, bloquant ensuite tout accès au petit polygone en dessous.
-      l.setStyle({ weight: 3, color: '#000' });
-      afficherInfo(feature.properties);
-      positionnerInfo(e.containerPoint.x, e.containerPoint.y);
-    },
-    mouseout: function (e) {
-      if (estTactile) return;
-      coucheActuelle.resetStyle(e.target);
-      masquerInfo();
-    },
-    click: function (e) {
-      if (!estTactile) return; // sur PC, le survol suffit
-      const l = e.target;
-      // Referme si on retape la même zone déjà ouverte, sinon l'ouvre
-      const dejaOuvert = infoDiv.style.display === 'block' && infoDiv.dataset.featureId === String(feature.id ?? '');
-      if (dejaOuvert) {
-        masquerInfo();
-      } else {
-        // Idem : pas de bringToFront ici, pour ne pas casser l'ordre
-        // d'empilement établi une fois pour toutes (petit au-dessus du grand).
-        l.setStyle({ weight: 3, color: '#000' });
-        afficherInfo(feature.properties);
-        infoDiv.dataset.featureId = String(feature.id ?? '');
-        positionnerInfo(e.containerPoint.x, e.containerPoint.y);
-      }
-      L.DomEvent.stopPropagation(e);
-    }
-  });
-}
-
-// Sur tactile : un tap en dehors d'un polygone referme la bulle d'info
-map.on('click', function () {
-  if (estTactile) masquerInfo();
+  marqueurs.push({ nom: s.station.toLowerCase(), marker: marker, lat: s.lat, lon: s.lon });
 });
 
 // ============================================================
-// Légende construite dynamiquement à partir des données du jour affiché
-// (regroupée par couleur, pour éviter les doublons liés à des libellés
-// légèrement différents pour un même phénomène/couleur)
+// Recherche de localite : centre/zoome et ouvre l'info-bulle
 // ============================================================
-// ============================================================
-// Légende repliable : gagne de la place sur petit écran (mobile).
-// Repliée par défaut si l'écran est étroit, dépliée sinon.
-// ============================================================
-const legendEl = document.getElementById('legend');
-const legendHeader = document.getElementById('legend-header');
-if (window.innerWidth <= 600) legendEl.classList.add('collapsed');
-legendHeader.addEventListener('click', () => legendEl.classList.toggle('collapsed'));
-
-// (Légende désormais fixe — affichée en HTML statique, voir #legend ci-dessus)
-
-// ============================================================
-// Affichage / changement de jour
-// ============================================================
-function afficherJour(n) {
-  jourActuel = n;
-  const donnees = recupererDonneesJour(n);
-  const alerte = document.getElementById('alerte-donnees');
-  const t = UI_TEXT[currentLang];
-
-  if (coucheActuelle) {
-    map.removeLayer(coucheActuelle);
-    coucheActuelle = null;
+document.getElementById('champ-recherche').addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter') return;
+  const terme = this.value.trim().toLowerCase();
+  if (!terme) return;
+  const trouve = marqueurs.find(m => m.nom.includes(terme));
+  if (trouve) {
+    map.setView([trouve.lat, trouve.lon], 10);
+    trouve.marker.openTooltip();
   }
-  masquerInfo();
-
-  if (!donnees) {
-    alerte.style.display = 'block';
-    alerte.textContent = t.alerteManquant(n);
-  } else {
-    alerte.style.display = 'none';
-    coucheActuelle = L.geoJSON(donnees, {
-      pane: 'paneVigilance',
-      style: stylePolygone,
-      onEachFeature: onEachFeature
-    }).addTo(map);
-
-    // Fait passer les petits polygones au-dessus des grands (superposition lisible)
-    mettreEnAvantLesPetits(coucheActuelle);
-  }
-
-  // Date affichée = date d'édition du bulletin, FIXE, identique pour J1..J5
-  document.getElementById('date-value').textContent = t.editePrefix + calculerDateEditionTexte(currentLang);
-
-  document.getElementById('echeance-label').textContent = t.echeancePrefix + t.dayLabel(n);
-}
-
-// ============================================================
-// Basculement de langue : met à jour tous les textes statiques (panneau,
-// légende, boutons J/D, bouton actif) puis rejoue afficherJour() pour
-// rafraîchir échéance/date/alerte dans la nouvelle langue. La bulle
-// d'info et les popups pays se traduisent automatiquement à la prochaine
-// ouverture puisqu'ils lisent `currentLang` au moment de l'affichage.
-// ============================================================
-function setLang(lang) {
-  if (!UI_TEXT[lang] || lang === currentLang) return;
-  currentLang = lang;
-  document.documentElement.lang = lang;
-
-  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
-
-  const t = UI_TEXT[lang];
-  document.getElementById('panel-title').textContent = t.panelTitle;
-  document.getElementById('legend-title-text').textContent = t.legendTitle;
-  document.getElementById('legend-nsw-text').textContent = t.legendNSW;
-  document.getElementById('logo-img').alt = t.logoAlt;
-  document.querySelectorAll('.day-btn').forEach(b => {
-    b.textContent = t.dayLabel(parseInt(b.dataset.day, 10));
-  });
-
-  afficherJour(jourActuel); // recalcule échéance / date d'édition / alerte
-}
-
-document.querySelectorAll('.lang-btn').forEach(btn => {
-  btn.addEventListener('click', () => setLang(btn.dataset.lang));
 });
-
-// ============================================================
-// Gestion des boutons de jour
-// ============================================================
-document.querySelectorAll('.day-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    afficherJour(parseInt(btn.dataset.day, 10));
-  });
-});
-
-// Affichage initial (français par défaut, J1)
-afficherJour(1);
 </script>
 </body>
 </html>
